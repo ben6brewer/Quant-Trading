@@ -1,0 +1,26 @@
+# .gitignore
+
+# Secrets
+.env
+
+# Virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# Data files
+*.csv
+*.parquet
+*.feather
+*.pkl
+*.h5
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
