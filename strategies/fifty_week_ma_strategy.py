@@ -9,21 +9,17 @@ class FiftyWeekMAStrategy(BaseStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
         """
-        Expects data with a 'close' column and a DateTime index.
-
-        Returns a DataFrame with a 'signal' column:
-        1 = long, -1 = short, 0 = flat/neutral
+        Modifies and returns input DataFrame with added '50_week_ma' and 'signal' columns.
+        Signal:
+            1 = long, -1 = short, 0 = neutral
         """
-        signals = pd.DataFrame(index=data.index)
-        signals['50_week_ma'] = data['close'].rolling(window=self.window_days).mean()
+        data = data.copy()
 
-        signals['signal'] = 0
-        signals.loc[data['close'] > signals['50_week_ma'], 'signal'] = 1
-        signals.loc[data['close'] < signals['50_week_ma'], 'signal'] = -1
+        data['50_week_ma'] = data['close'].rolling(window=self.window_days).mean()
 
-        signals['signal'] = signals['signal'].shift(1)
+        data['signal'] = 0
+        data.loc[data['close'] > data['50_week_ma'], 'signal'] = 1
+        data.loc[data['close'] < data['50_week_ma'], 'signal'] = -1
 
-        signals['signal'] = signals['signal'].fillna(0).astype(int)
-        return signals
-
-
+        data['signal'] = data['signal'].shift(1).fillna(0).astype(int)
+        return data

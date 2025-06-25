@@ -7,6 +7,7 @@ from config.universe_config import *
 from alpaca.alpaca_executor import *
 from strategies.fifty_week_ma_strategy import *
 from utils.data_fetch import *
+from visualizations.plot_signals import *
 
 def main():
     if ENVIRONMENT == "dev":
@@ -18,8 +19,12 @@ def main():
 
         for ticker, df in data_dict.items():
             print(f"Generating signals for {ticker}")
-            signals = strategy.generate_signals(df)
-            print(f"Signals for {ticker}:\n", signals)
+            df_with_signals = strategy.generate_signals(df)
+            print(f"Signals for {ticker}:\n", df_with_signals)
+
+            # Plot the signals
+            plot_signals(df_with_signals, ticker=ticker)
+
 
 if __name__ == "__main__":
     main()
