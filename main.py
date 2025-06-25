@@ -1,19 +1,20 @@
-# run.py
+# main.py
 
-from strategies.pe_ratio_strategy import PERatioStrategy
-from backtest.backtest_engine import run_backtest
-from config.universe_config import PE_STRATEGY_SETTINGS, SP500_TICKERS
+# from strategies.pe_ratio_strategy import PERatioStrategy
+# from backtest.backtest_engine import run_backtest
+# from config.universe_config import PE_STRATEGY_SETTINGS, SP500_TICKERS
 from config.secrets_config import ENVIRONMENT
-from execution.alpaca_executor import AlpacaExecutor
+from alpaca.alpaca_executor import AlpacaExecutor
 
 def main():
-    strategy = PERatioStrategy(**PE_STRATEGY_SETTINGS)
-
     if ENVIRONMENT == "dev":
-        run_backtest(strategy, SP500_TICKERS)
+        pass
     else:
         executor = AlpacaExecutor()
-        executor.run_live(strategy, SP500_TICKERS)
+        # executor.place_order("BTC", 1, "buy")
+        # executor.liquidate_all_positions()
+        # executor.cancel_all_orders()
+        # print(executor.api.list_orders(status='all', limit=100, nested=True))
 
 if __name__ == "__main__":
     main()
