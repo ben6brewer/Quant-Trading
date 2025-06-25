@@ -20,8 +20,10 @@ FIFTY_WEEK_MA_STRATEGY_SETTINGS = {
 
 
 BACKTEST_CONFIG = {
-    "start_date": "2020-01-01",
-    "end_date": "2024-12-31",
     "initial_cash": 100000,
-    "commission_per_trade": 1.0
+    "commission_per_trade": 1.0,           # Flat fee per trade
+    "position_size_pct": 100.0,            # Fraction of portfolio to allocate per signal
+    "slippage_pct": 0.001,                 # 0.1% slippage
+    "rebalance_on": "signal_change",       # Could also be 'weekly', 'monthly', etc.
+    "trade_on_close": True                 # Whether to trade on the closing price of the signal day
 }
