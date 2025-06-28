@@ -1,108 +1,35 @@
+# utils/plot_signals.py
+
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import pandas as pd
-import numpy as np
-from config.universe_config import BACKTEST_CONFIG
 
 
-class BacktestEngine:
-    def __init__(self):
-        # Load config params
-        self.initial_cash = BACKTEST_CONFIG.get("initial_cash", 100000)
-        self.commission = BACKTEST_CONFIG.get("commission_per_trade", 1.0)
-        self.position_size_pct = BACKTEST_CONFIG.get("position_size_pct", 100.0) / 100.0
-        self.allow_short = BACKTEST_CONFIG.get("allow_short", False)
-        self.slippage_pct = BACKTEST_CONFIG.get("slippage_pct", 0.0)
-        self.rebalance_on = BACKTEST_CONFIG.get("rebalance_on", "signal_change")
-        self.trade_on_close = BACKTEST_CONFIG.get("trade_on_close", True)
+def plot_signals(df):
+    """
+    Plots the closing price, 50-week moving average, and buy/sell signal changes.
 
-    def run_backtest(self, data: pd.DataFrame):
-        """
-        Backtest over data with 'close' and 'signal' columns.
-        Signal: 1=long, -1=short (if allowed), 0=flat.
-        Uses position_size_pct of portfolio.
-        """
-        df = data.copy()
+    Only plots signal points when the signal value changes from the previous row.
+    """
+    plt.figure(figsize=(14, 7))
+    plt.plot(df.index, df['close'], label='Close Price', alpha=0.6)
+    plt.plot(df.index, df['50_week_ma'], label='50 Week MA', alpha=0.75)
 
-        df['position'] = np.zeros(len(df), dtype=float)
-        df['trade'] = np.zeros(len(df), dtype=float)
-        df['cash'] = np.full(len(df), float(self.initial_cash))
-        df['holdings'] = np.zeros(len(df), dtype=float)
-        df['total_equity'] = np.full(len(df), float(self.initial_cash))
-        df['returns'] = np.zeros(len(df), dtype=float)
+    # Find signal change points
+    signal_changes = df['signal'].diff().fillna(0) != 0
+    change_points = df[signal_changes]
 
-        cash = float(self.initial_cash)
-        position = 0.0
+    # Plot buy/sell signals
+    buy_signals = change_points[change_points['signal'] == 1]
+    sell_signals = change_points[change_points['signal'] == -1]
 
-        for i in range(1, len(df)):
-            signal = df['signal'].iloc[i]
-            price = df['close'].iloc[i]
-            prev_signal = df['signal'].iloc[i - 1]
-            signal_changed = (signal != prev_signal)
+    plt.scatter(buy_signals.index, buy_signals['close'], marker='^', color='green', label='Buy Signal', s=100)
+    plt.scatter(sell_signals.index, sell_signals['close'], marker='v', color='red', label='Sell Signal', s=100)
 
-            # Skip trading unless signal changes or rebalancing strategy applies
-            if self.rebalance_on == "signal_change" and not signal_changed:
-                df.at[df.index[i], 'position'] = float(position)
-                df.at[df.index[i], 'cash'] = float(cash)
-                df.at[df.index[i], 'holdings'] = float(position * price)
-                df.at[df.index[i], 'total_equity'] = float(cash + position * price)
-                df.at[df.index[i], 'returns'] = df['total_equity'].pct_change().iloc[i]
-                continue
-
-            # Close existing position if signal changed
-            if position != 0 and signal != prev_signal:
-                # If long position, sell all units
-                if position > 0:
-                    sell_price = price * (1 - self.slippage_pct)
-                    proceeds = position * sell_price - self.commission
-                    cash += proceeds
-                    df.at[df.index[i], 'trade'] = -float(position)
-                # If short position, buy back all units
-                elif position < 0:
-                    buy_price = price * (1 + self.slippage_pct)
-                    cost = abs(position) * buy_price + self.commission
-                    cash -= cost
-                    df.at[df.index[i], 'trade'] = abs(position)
-                position = 0.0
-
-            units_to_trade = None
-
-            # Open new long position
-            if signal == 1:
-                trade_cash = cash * self.position_size_pct
-                buy_price = price * (1 + self.slippage_pct)
-                units_to_trade = (trade_cash - self.commission) / buy_price
-
-                if units_to_trade > 0:
-                    cost = units_to_trade * buy_price + self.commission
-                    cash -= cost
-                    position = units_to_trade
-                    df.at[df.index[i], 'trade'] = float(units_to_trade)
-
-            # Open new short position
-            elif signal == -1:
-                if self.allow_short:
-                    trade_cash = cash * self.position_size_pct
-                    sell_price = price * (1 - self.slippage_pct)
-                    units_to_trade = (trade_cash - self.commission) / sell_price
-
-                    if units_to_trade > 0:
-                        proceeds = units_to_trade * sell_price - self.commission
-                        cash += proceeds
-                        position = -units_to_trade  # Negative for short
-                        df.at[df.index[i], 'trade'] = -float(units_to_trade)
-                else:
-                    position = 0.0
-                    df.at[df.index[i], 'trade'] = 0.0
-            else:
-                # Flat signal
-                position = 0.0
-                df.at[df.index[i], 'trade'] = 0.0
-
-            holdings = position * price
-            total_equity = cash + holdings
-
-            df.at[df.index[i], 'position'] = float(position)
-            df.at[df.index[i], 'cash'] = float(cash)
-            df.at[df.index[i], 'holdings'] = float(holdings)
-            df.at[df.index[i], 'total_equity'] = float(total_equity)
-            df.at[df.index[i], 'returns'] = df['total_equity'].pct_change().iloc[i]
-        return df
+    plt.title(f'{df.ticker} {df.title} Signals')
+    plt.xlabel('Date')
+    plt.ylabel('Price')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()

@@ -22,6 +22,8 @@ class BacktestEngine:
         Uses position_size_pct of portfolio.
         """
         df = data.copy()
+        df.title = data.title
+        df.ticker = data.ticker
 
         df['position'] = np.zeros(len(df), dtype=float)
         df['trade'] = np.zeros(len(df), dtype=float)

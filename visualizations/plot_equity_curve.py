@@ -3,13 +3,12 @@
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-def plot_equity_curve(results_df, title="Equity Curve"):
+def plot_equity_curve(results_df):
     """
     Plots the total equity curve from a backtest results DataFrame.
 
     Args:
         results_df (pd.DataFrame): DataFrame with a 'total_equity' column and datetime index.
-        title (str): Title of the plot.
         save_path (str or None): Optional path to save the plot image.
     """
     if 'total_equity' not in results_df.columns:
@@ -18,7 +17,7 @@ def plot_equity_curve(results_df, title="Equity Curve"):
     plt.figure(figsize=(12, 6))
     plt.plot(results_df.index, results_df['total_equity'], label='Total Equity', color='blue', linewidth=2)
     
-    plt.title(title, fontsize=16)
+    plt.title(f"{results_df.ticker} {results_df.title} Equity Curve", fontsize=16)
     plt.xlabel("Date", fontsize=12)
     plt.ylabel("Total Equity ($)", fontsize=12)
     plt.grid(True, linestyle='--', alpha=0.5)
@@ -29,13 +28,12 @@ def plot_equity_curve(results_df, title="Equity Curve"):
     plt.gcf().autofmt_xdate()
     plt.show()
 
-def plot_equity_vs_benchmark(results_df, title="Equity Curve vs Underlying Asset"):
+def plot_equity_vs_benchmark(results_df):
     """
     Plots the strategy's equity curve against a Buy & Hold equity curve using the 'close' and 'total_equity' columns.
 
     Args:
         results_df (pd.DataFrame): DataFrame with 'total_equity' and 'close' columns, indexed by datetime.
-        title (str): Title of the plot.
         save_path (str or None): Optional path to save the plot image.
     """
     if 'total_equity' not in results_df.columns or 'close' not in results_df.columns:
@@ -52,9 +50,9 @@ def plot_equity_vs_benchmark(results_df, title="Equity Curve vs Underlying Asset
     # Plot
     plt.figure(figsize=(12, 6))
     plt.plot(results_df.index, results_df['total_equity'], label='Strategy Equity', color='blue', linewidth=2)
-    plt.plot(results_df.index, buy_and_hold_equity, label='Buy & Hold', color='orange', linestyle='--', linewidth=2)
+    plt.plot(results_df.index, buy_and_hold_equity, label='Buy & Hold', color='orange', linewidth=2)
 
-    plt.title(title, fontsize=16)
+    plt.title(f"{results_df.ticker} vs {results_df.title}", fontsize=16)
     plt.xlabel("Date", fontsize=12)
     plt.ylabel("Equity ($)", fontsize=12)
     plt.grid(True, linestyle='--', alpha=0.5)

@@ -13,7 +13,8 @@ PE_STRATEGY_SETTINGS = {
 }
 
 FIFTY_WEEK_MA_STRATEGY_SETTINGS = {
-    "tickers": ["BTC-USD"],
+    "title": "50 week MA Strategy",
+    "ticker": "BTC-USD",
     "period": "max",
     "interval": "1d",
 }
