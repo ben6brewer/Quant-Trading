@@ -19,6 +19,13 @@ FIFTY_WEEK_MA_STRATEGY_SETTINGS = {
     "interval": "1d",
 }
 
+CRYPTO_SENTIMENT_STRATEGY_SETTINGS = {
+    "title": "Crypto Sentiment Strategy",
+    "ticker": "BTC-USD",
+    "period": "max",
+    "interval": "1d",
+}
+
 
 BACKTEST_CONFIG = {
     "initial_cash": 100000,
