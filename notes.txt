@@ -1,0 +1,8 @@
+fity week moving average:
+-   higher sharpe and return than just holding
+-   low number of trades (2 per cycle)
+
+crypto sentiment:
+-   works alright but I might be overfitting the data by adding a variable for how long
+    it needs to have print after print in the threshold. Adding one for the buy and the 
+    sell to have their own timeframe is probably overfitting
