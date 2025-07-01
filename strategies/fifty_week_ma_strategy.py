@@ -27,4 +27,3 @@ class FiftyWeekMAStrategy(BaseStrategy):
         data_copy['signal'] = data_copy['signal'].replace(0, np.nan).ffill().fillna(0).astype(int)
 
         return data_copy
-

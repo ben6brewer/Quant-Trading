@@ -61,3 +61,49 @@ def plot_equity_vs_benchmark(results_df):
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     plt.gcf().autofmt_xdate()
     plt.show()
+
+
+def plot_multiple_equity_curves(results_dfs, normalize=True):
+    """
+    Plots equity curves for multiple strategies starting from the latest common start date.
+    Optionally normalizes equity curves to start at the same value.
+
+    Args:
+        results_dfs (list of pd.DataFrame): Each DataFrame must have datetime index and 'total_equity'.
+                                            Optional: `.title` and `.ticker` attributes.
+        normalize (bool): Whether to normalize all curves to start at the same value.
+    """
+    latest_start = max(df.index.min() for df in results_dfs)
+
+    aligned_dfs = []
+    for df in results_dfs:
+        trimmed_df = df[df.index >= latest_start].copy()
+        for attr in ['title', 'ticker']:
+            if hasattr(df, attr):
+                setattr(trimmed_df, attr, getattr(df, attr))
+
+        if normalize:
+            starting_equity = trimmed_df['total_equity'].iloc[0]
+            trimmed_df['normalized_equity'] = trimmed_df['total_equity'] / starting_equity * 1_000_000
+        else:
+            trimmed_df['normalized_equity'] = trimmed_df['total_equity']
+
+        aligned_dfs.append(trimmed_df)
+
+    plt.figure(figsize=(14, 7))
+    for df in aligned_dfs:
+        title = getattr(df, 'title', 'Strategy')
+        ticker = getattr(df, 'ticker', 'Asset')
+        label = f"{ticker} - {title}"
+        plt.plot(df.index, df['normalized_equity'], label=label, linewidth=2)
+
+    plt.title("Equity Curve Comparison", fontsize=18)
+    plt.xlabel("Date", fontsize=14)
+    plt.ylabel("Total Equity ($)", fontsize=14)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.legend(loc='upper left', fontsize=12)
+
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    plt.gcf().autofmt_xdate()
+    plt.tight_layout()
+    plt.show()
