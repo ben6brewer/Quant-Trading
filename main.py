@@ -26,9 +26,9 @@ def main():
         (CryptoSentimentStrategy, CRYPTO_SENTIMENT_STRATEGY_SETTINGS),
         (FiftyWeekMAStrategy, FIFTY_WEEK_MA_STRATEGY_SETTINGS)
         ]
-    # compare_strategies(strategy_list)
+    compare_strategies(strategy_list)
     
-    run_fifty_week_ma_strategy()
+    # run_fifty_week_ma_strategy()
     # run_crypto_sentiment_strategy()
     
 
@@ -104,9 +104,9 @@ def run_fifty_week_ma_strategy():
     plot_signals(signal_df)
     results_df = backtester.run_backtest(signal_df)
     # pretty_print_df(results_df.tail())
-    # plot_equity_curve(results_df)
-    # plot_equity_vs_benchmark(results_df)
-    # print_performance_metrics(results_df)
+    plot_equity_curve(results_df)
+    plot_equity_vs_benchmark(results_df)
+    print_performance_metrics(results_df)
 
 if __name__ == "__main__":
     main()
