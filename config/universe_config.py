@@ -26,6 +26,12 @@ CRYPTO_SENTIMENT_STRATEGY_SETTINGS = {
     "interval": "1d",
 }
 
+VIX_SPY_STRATEGY_SETTINGS = {
+    "title": "VIX Strategy",
+    "ticker": "SPY",
+    "period": "max",
+    "interval": "1d",
+}
 
 BACKTEST_CONFIG = {
     "initial_cash": 100000,

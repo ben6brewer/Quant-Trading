@@ -63,13 +63,32 @@ def plot_signals(dataframe):
     signal_diff = df['signal'].diff().fillna(0)
     change_points = df[signal_diff != 0]
 
-    buy_signals = change_points[change_points['signal'] == 1]
-    sell_signals = change_points[change_points['signal'] == -1]
-    exit_signals = change_points[(change_points['signal'] == 0) & (signal_diff.abs() == 1)]
+    # Standard signals
+    buy_signals = change_points[change_points['signal'] == 1.0]
+    sell_signals = change_points[change_points['signal'] == -1.0]
+    exit_signals = change_points[(change_points['signal'] == 0.0) & (signal_diff.abs() >= 0.5)]
 
+    # Partial exits (dynamic: any decrease in signal > 0 but < 1)
+    partial_exit_signals = change_points[
+        (change_points['signal'] < 1.0) & 
+        (change_points['signal'] > 0.0) & 
+        (signal_diff < 0)
+    ]
+
+    # (Optional) Partial increases (e.g. 0.5 -> 0.75, or 0.75 -> 1.0)
+    # Uncomment to visualize if needed
+    # partial_entry_signals = change_points[
+    #     (change_points['signal'] < 1.0) & 
+    #     (change_points['signal'] > 0.0) & 
+    #     (signal_diff > 0)
+    # ]
+    # ax.scatter(partial_entry_signals.index, partial_entry_signals['close'], marker='^', color='orange', label='Add to Position', s=90, zorder=5)
+
+    # Plotting markers
     ax.scatter(buy_signals.index, buy_signals['close'], marker='^', color='green', label='Buy Signal', s=100, zorder=5)
     ax.scatter(sell_signals.index, sell_signals['close'], marker='v', color='red', label='Short Selling Signal', s=100, zorder=5)
     ax.scatter(exit_signals.index, exit_signals['close'], marker='o', color='blue', label='Exit to Cash', s=80, zorder=5)
+    ax.scatter(partial_exit_signals.index, partial_exit_signals['close'], marker='o', color='purple', label='Partial Exit', s=80, zorder=5)
 
     ax.set_title(f"{df.ticker} {df.title} Signals".strip())
     ax.set_xlabel('Date')

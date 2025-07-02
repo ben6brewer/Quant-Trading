@@ -7,6 +7,8 @@ from datetime import datetime
 from utils.data_utils import *
 from utils.cmc_data_fetch import *
 from utils.fetch_btc_historical import *
+from utils.fetch_spy_historical import *
+from utils.fetch_vix_historical import *
 
 DATA_DIR = "data"
 REQUIRED_PARAMS = ["ticker", "period", "interval"]
@@ -39,6 +41,16 @@ def fetch_data_for_strategy(strategy_settings):
         df.ticker = ticker
         df.title = strategy_title
         return df
+    elif strategy_title == "VIX Strategy":
+        vix_df = fetch_vix_historical_data()
+        if ticker == "SPY":
+            spy_df = fetch_spy_historical_data()
+
+            # Merge on 'date'
+            merged_df = pd.merge(spy_df, vix_df, on="date", how="inner")
+            merged_df.title = strategy_title
+            merged_df.ticker = ticker
+            return merged_df
 
     # Standard logic for other strategies
     filename = f"{ticker.replace('-', '_')}.parquet"

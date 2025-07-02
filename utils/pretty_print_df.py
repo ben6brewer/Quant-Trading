@@ -3,6 +3,7 @@
 from rich.console import Console
 from rich.table import Table
 import pandas as pd
+import numpy as np
 
 def pretty_print_df(df: pd.DataFrame, title: str = None):
     console = Console()
@@ -12,8 +13,14 @@ def pretty_print_df(df: pd.DataFrame, title: str = None):
     for column in df.columns:
         table.add_column(str(column), overflow='fold', style="cyan", no_wrap=True)
 
-    # Add rows (convert all values to string to avoid errors)
+    # Add rows with numeric formatting to 3 decimals
     for _, row in df.iterrows():
-        table.add_row(*[str(value) for value in row])
+        formatted_row = []
+        for value in row:
+            if isinstance(value, (float, np.floating)):
+                formatted_row.append(f"{value:.3f}")
+            else:
+                formatted_row.append(str(value))
+        table.add_row(*formatted_row)
 
     console.print(table)
