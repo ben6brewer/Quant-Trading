@@ -43,8 +43,8 @@ def plot_vix(ax, df):
         return
 
     ax.plot(df.index, df['vix'], color='orange', alpha=0.8, label='VIX')
-    ax.set_ylabel('VIX', color='orange')
-    ax.tick_params(axis='y', colors='orange')
+    ax.set_ylabel('VIX')
+    ax.tick_params(axis='y')
     ax.grid(True)
     ax.legend(loc='upper right')
 

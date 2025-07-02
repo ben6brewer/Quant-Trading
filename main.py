@@ -20,12 +20,15 @@ import pandas as pd
 import requests
 from datetime import date
 
+strategy_list = [
+    (CryptoSentimentStrategy, CRYPTO_SENTIMENT_STRATEGY_SETTINGS),
+    (FiftyWeekMAStrategy, FIFTY_WEEK_MA_STRATEGY_SETTINGS),
+    (VixBtcStrategy, VIX_BTC_STRATEGY_SETTINGS),
+    (VixSpyStrategy, VIX_SPY_STRATEGY_SETTINGS)
+    ]
 
 def main():
-    # strategy_list = [
-    #     (CryptoSentimentStrategy, CRYPTO_SENTIMENT_STRATEGY_SETTINGS),
-    #     (FiftyWeekMAStrategy, FIFTY_WEEK_MA_STRATEGY_SETTINGS)
-    #     ]
+
     # compare_strategies(strategy_list)
     
     # run_fifty_week_ma_strategy()
@@ -45,6 +48,19 @@ def compare_strategies(strategy_class_and_settings_list):
     raw_data = []
     for strategy_class, settings in strategy_class_and_settings_list:
         df = fetch_data_for_strategy(settings)
+
+        # Ensure datetime index here
+        if not pd.api.types.is_datetime64_any_dtype(df.index):
+            if 'date' in df.columns:
+                df['date'] = pd.to_datetime(df['date'])
+                df.set_index('date', inplace=True)
+            else:
+                # Try to convert index anyway
+                try:
+                    df.index = pd.to_datetime(df.index)
+                except Exception as e:
+                    print(f"Warning: Could not convert index to datetime for {df.ticker if hasattr(df, 'ticker') else 'unknown ticker'}: {e}")
+
         df.title = settings.get('title', 'Untitled Strategy')
         df.ticker = settings.get('ticker', 'Unknown')
         raw_data.append((strategy_class, df))
@@ -73,8 +89,6 @@ def compare_strategies(strategy_class_and_settings_list):
 
     # Step 4: Plot equity curves
     plot_multiple_equity_curves(results)
-
-
 
 
 def run_crypto_sentiment_strategy():
@@ -129,7 +143,7 @@ def run_vix_spy_strategy():
 
     plot_equity_curve(results_df)
     plot_equity_vs_benchmark(results_df)
-    # print_performance_metrics(results_df)
+    print_performance_metrics(results_df)
 
 
 def run_vix_btc_strategy():

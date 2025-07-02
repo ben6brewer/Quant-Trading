@@ -91,18 +91,26 @@ def fetch_data_for_strategy(strategy_settings):
         else:
             df.columns = [col.lower() for col in df.columns]
 
-        df.to_parquet(filepath)
-        print(f"Saved fresh {ticker} data to {filepath}")
-
-    if should_fetch:
         df = df.reset_index()
         if 'Date' in df.columns:
             df = df.rename(columns={'Date': 'date'})
         df['date'] = pd.to_datetime(df['date'])
-
-    # Ensure datetime index
-    if 'date' in df.columns:
         df.set_index('date', inplace=True)
+
+        df.to_parquet(filepath)
+        print(f"Saved fresh {ticker} data to {filepath}")
+
+    else:
+        # When loading cached data:
+        if not pd.api.types.is_datetime64_any_dtype(df.index):
+            if 'date' in df.columns:
+                df['date'] = pd.to_datetime(df['date'])
+                df.set_index('date', inplace=True)
+            else:
+                try:
+                    df.index = pd.to_datetime(df.index)
+                except Exception as e:
+                    print(f"Warning: Could not convert index to datetime for {ticker}: {e}")
 
     df.ticker = ticker
     df.title = strategy_title
