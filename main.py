@@ -7,6 +7,7 @@ from config.universe_config import *
 from strategies.fifty_week_ma_strategy import *
 from strategies.crypto_sentiment_strategy import *
 
+from strategies.vix_btc_strategy import *
 from strategies.vix_spy_strategy import *
 from utils.yfinance_data_fetch import *
 from visualizations.plot_signals import *
@@ -30,6 +31,7 @@ def main():
     # run_fifty_week_ma_strategy()
     # run_crypto_sentiment_strategy()
     run_vix_spy_strategy()
+    # run_vix_btc_strategy()
     
 
 def compare_strategies(strategy_class_and_settings_list):
@@ -120,6 +122,27 @@ def run_vix_spy_strategy():
 
     # Filter starting from 2020-02-01
     filtered_df = results_df.loc[results_df['date'] >= '2020-03-04']
+    # Show the first 50 rows starting from that date
+    # pretty_print_df(filtered_df.head(50))
+    # pretty_print_df(signal_df.tail())
+    plot_signals(signal_df)
+
+    plot_equity_curve(results_df)
+    plot_equity_vs_benchmark(results_df)
+    # print_performance_metrics(results_df)
+
+
+def run_vix_btc_strategy():
+    df = fetch_data_for_strategy(VIX_BTC_STRATEGY_SETTINGS)
+    strategy = VixBtcStrategy()
+    backtester = BacktestEngine()
+    signal_df = strategy.generate_signals(df)
+    results_df = backtester.run_backtest(signal_df)
+    # pretty_print_df(results_df.tail())
+    # Ensure 'date' column is datetime
+    results_df['date'] = pd.to_datetime(results_df['date'])
+
+    # Filter starting from 2020-02-01
     # Show the first 50 rows starting from that date
     # pretty_print_df(filtered_df.head(50))
     # pretty_print_df(signal_df.tail())

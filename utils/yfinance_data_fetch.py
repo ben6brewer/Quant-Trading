@@ -51,6 +51,13 @@ def fetch_data_for_strategy(strategy_settings):
             merged_df.title = strategy_title
             merged_df.ticker = ticker
             return merged_df
+        if ticker == "BTC-USD":
+            btc_df = fetch_btc_historical_data()
+
+            merged_df = pd.merge(btc_df, vix_df, on="date", how="inner")
+            merged_df.title = strategy_title
+            merged_df.ticker = ticker
+            return merged_df
 
     # Standard logic for other strategies
     filename = f"{ticker.replace('-', '_')}.parquet"

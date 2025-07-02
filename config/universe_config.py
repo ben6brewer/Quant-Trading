@@ -33,6 +33,14 @@ VIX_SPY_STRATEGY_SETTINGS = {
     "interval": "1d",
 }
 
+VIX_BTC_STRATEGY_SETTINGS = {
+    "title": "VIX Strategy",
+    "ticker": "BTC-USD",
+    "period": "max",
+    "interval": "1d",
+}
+
+
 BACKTEST_CONFIG = {
     "initial_cash": 100000,
     "commission_per_trade": 1.0,           # Flat fee per trade
