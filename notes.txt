@@ -6,3 +6,9 @@ crypto sentiment:
 -   works alright but I might be overfitting the data by adding a variable for how long
     it needs to have print after print in the threshold. Adding one for the buy and the 
     sell to have their own timeframe is probably overfitting
+
+Ideas:
+- buy all stocks according to their size and rebalance every month
+- moving average permutations
+- vix permutations
+- long / short specific decile in SP500 according to KPI metrics like PE ratio
