@@ -12,8 +12,10 @@ class VixSpyStrategy(BaseStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
         df = data.copy()
-        df.title = data.title
-        df.ticker = data.ticker
+
+        # Use .attrs for metadata
+        title = data.attrs.get("title", "VIX Strategy")
+        ticker = data.attrs.get("ticker", "Unknown")
 
         signal = []
         entry_price = None
@@ -30,7 +32,6 @@ class VixSpyStrategy(BaseStrategy):
                     current_signal = 1.0
                     entry_price = price
                     took_partial_profit = False
-                # else: already fully invested, do nothing
 
             # Check for take-profit only if fully invested and not already took partial profit
             elif current_signal == 1.0 and entry_price is not None and not took_partial_profit:
@@ -42,4 +43,6 @@ class VixSpyStrategy(BaseStrategy):
             signal.append(current_signal)
 
         df['signal'] = signal
+        df.attrs['title'] = title
+        df.attrs['ticker'] = ticker
         return df

@@ -107,3 +107,40 @@ def plot_multiple_equity_curves(results_dfs, normalize=True):
     plt.gcf().autofmt_xdate()
     plt.tight_layout()
     plt.show()
+
+def plot_grid_search_equity_curves(results_dfs, best_params):
+    latest_start = max(df.index.min() for df in results_dfs)
+
+    aligned_dfs = []
+    for df in results_dfs:
+        trimmed_df = df[df.index >= latest_start].copy()
+        trimmed_df.attrs.update(df.attrs)
+
+        aligned_dfs.append(trimmed_df)
+
+    plt.figure(figsize=(14, 7))
+    for df in aligned_dfs:
+        params = df.attrs.get('params')
+        if params:
+            label = f"VIX:{params['vix_threshold']} TP:{params['take_profit_pct']:.2f} Exit:{params['partial_exit_pct']:.2f}"
+        else:
+            title = df.attrs.get('title', 'Strategy')
+            ticker = df.attrs.get('ticker', 'Asset')
+            label = f"{ticker} - {title}"
+
+        is_best = params == best_params if params is not None else False
+
+        if is_best:
+            plt.plot(df.index, df['total_equity'], label=label, linewidth=2, alpha=1.0, color='red')
+        else:
+            plt.plot(df.index, df['total_equity'], label=label, linewidth=1, alpha=0.85)
+
+    plt.title("Equity Curve Comparison", fontsize=18)
+    plt.xlabel("Date", fontsize=14)
+    plt.ylabel("Total Equity ($)", fontsize=14)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.legend(loc='upper left', fontsize=12)
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    plt.gcf().autofmt_xdate()
+    plt.tight_layout()
+    plt.show()

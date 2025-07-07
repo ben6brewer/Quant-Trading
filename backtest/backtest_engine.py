@@ -17,8 +17,9 @@ class BacktestEngine:
 
     def run_backtest(self, data: pd.DataFrame):
         df = data.copy()
-        df.title = data.title
-        df.ticker = data.ticker
+        df.attrs['title'] = data.attrs.get('title', 'Strategy')
+        df.attrs['ticker'] = data.attrs.get('ticker', 'Unknown')
+
 
         df['position'] = np.zeros(len(df), dtype=float)
         df['trade'] = np.zeros(len(df), dtype=float)

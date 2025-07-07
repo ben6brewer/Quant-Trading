@@ -31,6 +31,11 @@ VIX_SPY_STRATEGY_SETTINGS = {
     "ticker": "SPY",
     "period": "max",
     "interval": "1d",
+    "optimization_params": {
+        "vix_threshold": (48, 49, 1),
+        "take_profit_pct": (0.09, 0.1, 0.01),
+        "partial_exit_pct": (0.09, 0.1, 0.01)
+    }
 }
 
 VIX_BTC_STRATEGY_SETTINGS = {

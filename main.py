@@ -16,6 +16,7 @@ from backtest.backtest_engine import *
 from utils.pretty_print_df import *
 from backtest.performance_metrics import *
 from utils.cmc_data_fetch import *
+from optimization.grid_search import *
 import pandas as pd
 import requests
 from datetime import date
@@ -33,8 +34,9 @@ def main():
     
     # run_fifty_week_ma_strategy()
     # run_crypto_sentiment_strategy()
-    run_vix_spy_strategy()
+    # run_vix_spy_strategy()
     # run_vix_btc_strategy()
+    run_strategy_grid_search(strategy_class=VixSpyStrategy, strategy_settings=VIX_SPY_STRATEGY_SETTINGS, performance_metric='sharpe')
     
 
 def compare_strategies(strategy_class_and_settings_list):
@@ -126,7 +128,7 @@ def run_fifty_week_ma_strategy():
 
 def run_vix_spy_strategy():
     df = fetch_data_for_strategy(VIX_SPY_STRATEGY_SETTINGS)
-    strategy = VixSpyStrategy()
+    strategy = VixSpyStrategy(vix_threshold=10, take_profit_pct=.1, partial_exit_pct=.2)
     backtester = BacktestEngine()
     signal_df = strategy.generate_signals(df)
     results_df = backtester.run_backtest(signal_df)
@@ -139,11 +141,11 @@ def run_vix_spy_strategy():
     # Show the first 50 rows starting from that date
     # pretty_print_df(filtered_df.head(50))
     # pretty_print_df(signal_df.tail())
-    # plot_signals(signal_df)
+    plot_signals(signal_df)
 
-    # plot_equity_curve(results_df)
-    # plot_equity_vs_benchmark(results_df)
-    pretty_print_df(results_df.tail())
+    plot_equity_curve(results_df)
+    plot_equity_vs_benchmark(results_df)
+    # pretty_print_df(results_df.tail())
     print_performance_metrics(results_df)
 
 
