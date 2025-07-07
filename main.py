@@ -135,14 +135,15 @@ def run_vix_spy_strategy():
     results_df['date'] = pd.to_datetime(results_df['date'])
 
     # Filter starting from 2020-02-01
-    filtered_df = results_df.loc[results_df['date'] >= '2020-03-04']
+    # filtered_df = results_df.loc[results_df['date'] >= '2020-03-04']
     # Show the first 50 rows starting from that date
     # pretty_print_df(filtered_df.head(50))
     # pretty_print_df(signal_df.tail())
-    plot_signals(signal_df)
+    # plot_signals(signal_df)
 
-    plot_equity_curve(results_df)
-    plot_equity_vs_benchmark(results_df)
+    # plot_equity_curve(results_df)
+    # plot_equity_vs_benchmark(results_df)
+    pretty_print_df(results_df.tail())
     print_performance_metrics(results_df)
 
 

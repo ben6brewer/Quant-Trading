@@ -88,7 +88,16 @@ def extract_trades(df: pd.DataFrame) -> list:
     return trades
 
 def print_performance_metrics(df: pd.DataFrame):
+    # Ensure index is datetime based on 'date' column if needed
+    if 'date' in df.columns:
+        df['date'] = pd.to_datetime(df['date'])
+        df.set_index('date', inplace=True)
+    elif not isinstance(df.index, pd.DatetimeIndex):
+        raise ValueError("DataFrame must have a datetime index or a 'date' column.")
+
+    # Fetch current 10Y treasury yield as risk-free rate
     risk_free_rate = yf.Ticker("^TNX").history(period="1d")['Close'].iloc[-1] / 100
+
     trades = extract_trades(df)
     num_trades = len(trades)
     wins = [t for t in trades if t['return'] > 0]
@@ -97,11 +106,10 @@ def print_performance_metrics(df: pd.DataFrame):
     avg_win = np.mean([t['return'] for t in wins]) if wins else 0
     avg_loss = np.mean([t['return'] for t in losses]) if losses else 0
 
-    df.index = pd.to_datetime(df.index)
-
     start_date = df.index.min()
     end_date = df.index.max()
     num_years = (end_date - start_date).days / 365.25
+
     print()
     print("📈 Performance Metrics")
     print(f"CAGR: {calculate_cagr(df) * 100:.2f}%")
@@ -117,28 +125,28 @@ def print_performance_metrics(df: pd.DataFrame):
     print(f"Average Win (%): {avg_win * 100:.2f}%")
     print(f"Average Loss (%): {avg_loss * 100:.2f}%")
     print()
+
     print_baseline_performance_metrics(df)
 
-def print_baseline_performance_metrics(df: pd.DataFrame, risk_free_rate: float = 0.0429):
-    """
-    Prints performance metrics of the underlying asset based on its closing prices.
-    Assumes df has a 'close' column with asset prices and a datetime index.
-    """
-    # Ensure index is datetime
-    df.index = pd.to_datetime(df.index)
 
-    # Calculate number of years from index
+def print_baseline_performance_metrics(df: pd.DataFrame, risk_free_rate: float = 0.0429):
+    # Ensure index is datetime based on 'date' column if needed
+    if 'date' in df.columns:
+        df['date'] = pd.to_datetime(df['date'])
+        df.set_index('date', inplace=True)
+    elif not isinstance(df.index, pd.DatetimeIndex):
+        raise ValueError("DataFrame must have a datetime index or a 'date' column.")
+
     start_date = df.index.min()
     end_date = df.index.max()
     num_years = (end_date - start_date).days / 365.25
 
-    # Prepare a DataFrame with 'total_equity' = price series for reusing metrics
+    # Create price-only equity curve for baseline
     asset_df = pd.DataFrame(index=df.index)
     asset_df['total_equity'] = df['close']
 
     print()
     print("📊 Baseline Asset Performance Metrics")
-    print(f"Start date: {start_date.date()}, End date: {end_date.date()}")
     print(f"CAGR: {calculate_cagr(asset_df) * 100:.2f}%")
     print(f"Cumulative Return over {num_years:.2f} years: {calculate_cumulative_returns(asset_df) * 100:.2f}%")
     print(f"Sharpe Ratio: {calculate_sharpe_ratio(asset_df, risk_free_rate):.4f}")
