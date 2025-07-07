@@ -16,8 +16,9 @@ class CryptoSentimentStrategy(BaseStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
         data_copy = data.copy()
-        data_copy.title = data.title
-        data_copy.ticker = data.ticker
+        
+        data_copy.attrs['title'] = data.attrs.get('title', 'Strategy')
+        data_copy.attrs['ticker'] = data.attrs.get('ticker', 'Unknown')
 
         fng_series = data_copy['F&G']
 

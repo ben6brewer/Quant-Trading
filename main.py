@@ -30,13 +30,13 @@ strategy_list = [
 
 def main():
 
-    # compare_strategies(strategy_list)
+    compare_strategies(strategy_list)
     
     # run_fifty_week_ma_strategy()
     # run_crypto_sentiment_strategy()
     # run_vix_spy_strategy()
     # run_vix_btc_strategy()
-    run_strategy_grid_search(strategy_class=VixSpyStrategy, strategy_settings=VIX_SPY_STRATEGY_SETTINGS, performance_metric='sharpe')
+    # run_strategy_grid_search(strategy_class=VixSpyStrategy, strategy_settings=VIX_SPY_STRATEGY_SETTINGS, performance_metric='sharpe')
     
 
 def compare_strategies(strategy_class_and_settings_list):
