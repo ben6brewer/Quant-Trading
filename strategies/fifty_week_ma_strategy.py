@@ -11,8 +11,8 @@ class FiftyWeekMAStrategy(BaseStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
         data_copy = data.copy()
-        data_copy.title = data.title
-        data_copy.ticker = data.ticker
+        data_copy.attrs['title'] = data.attrs.get('title', 'Strategy')
+        data_copy.attrs['ticker'] = data.attrs.get('ticker', 'Unknown')
 
         data_copy['50_week_ma'] = data_copy['close'].rolling(window=self.window_days).mean()
 

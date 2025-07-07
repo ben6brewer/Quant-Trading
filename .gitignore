@@ -10,7 +10,7 @@ __pycache__/
 
 # Data files
 *.csv
-*.parquet
+# *.parquet
 *.feather
 *.pkl
 *.h5

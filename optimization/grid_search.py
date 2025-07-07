@@ -5,9 +5,12 @@ from utils.yfinance_data_fetch import *
 from backtest.performance_metrics import *
 from backtest.backtest_engine import *
 from visualizations.plot_equity_curve import *
-from concurrent.futures import ProcessPoolExecutor
+from strategies.base_strategy import BaseStrategy
 import numpy as np
 import itertools
+import os
+import pandas as pd
+import hashlib
 
 # Mapping performance metrics to functions
 METRIC_FUNCTIONS = {
@@ -17,27 +20,24 @@ METRIC_FUNCTIONS = {
     'max_drawdown': calculate_max_drawdown,
 }
 
-def evaluate_strategy(args):
-    strategy_class, df, params, strategy_settings, performance_metric = args
-
-    # Create a fresh instance of the strategy
+def evaluate_strategy(strategy_class, df, params, strategy_settings, performance_metric):
+    # Create and configure strategy
     strategy = strategy_class()
     for param, val in params.items():
         setattr(strategy, param, val)
 
-    # Copy the DataFrame and metadata
     df_copy = df.copy(deep=True)
     df_copy.attrs = df.attrs.copy()
 
-    # Run strategy and backtest
+    # Run signals and backtest
     signal_df = strategy.generate_signals(df_copy)
     results_df = BacktestEngine().run_backtest(signal_df)
 
-    # Calculate performance metric
+    # Calculate performance
     metric_func = METRIC_FUNCTIONS[performance_metric]
     metric_value = metric_func(results_df)
 
-    # Attach metadata for later use
+    # Attach metadata
     results_df.attrs['params'] = params
     results_df.attrs['title'] = df_copy.attrs.get('title', 'Unknown')
     results_df.attrs['ticker'] = df_copy.attrs.get('ticker', 'Unknown')
@@ -46,14 +46,11 @@ def evaluate_strategy(args):
 
 
 def run_strategy_grid_search(strategy_class, strategy_settings, performance_metric='sharpe'):
-    # Fetch historical data
     df = fetch_data_for_strategy(strategy_settings)
 
-    # Add metadata to df
     df.attrs['title'] = strategy_settings.get('title', 'Strategy')
     df.attrs['ticker'] = strategy_settings.get('ticker', 'Unknown')
 
-    # Generate grid from parameter ranges
     optimization_params = strategy_settings.get('optimization_params', {})
     grid_search_params = {
         key: np.round(np.arange(start, stop, step), 6).tolist()
@@ -65,41 +62,53 @@ def run_strategy_grid_search(strategy_class, strategy_settings, performance_metr
     total_combinations = len(param_combinations)
     print(f"Total parameter combinations to test: {total_combinations}\n")
 
-    # Prepare arguments for multiprocessing
-    args_list = [
-        (strategy_class, df, dict(zip(keys, values)), strategy_settings, performance_metric)
-        for values in param_combinations
-    ]
+    os.makedirs("data/optimization_testcases", exist_ok=True)
 
-    # Tracking best result
+    results_dfs = []
     best_metric_value = -np.inf if performance_metric != 'max_drawdown' else np.inf
     best_params = None
     best_results_df = None
-    results_dfs = []
 
-    # Parallel evaluation
-    with ProcessPoolExecutor() as executor:
-        for i, (metric_value, params, results_df) in enumerate(executor.map(evaluate_strategy, args_list), 1):
-            print(f"Evaluated combination {i} / {total_combinations}: " +
-                  ", ".join(f"{k}={v:.2f}" if isinstance(v, float) else f"{k}={v}" for k, v in params.items()))
+    title = df.attrs['title']
+    ticker = df.attrs['ticker']
 
-            if performance_metric == 'max_drawdown':
-                if metric_value < best_metric_value:
-                    best_metric_value = metric_value
-                    best_params = params
-                    best_results_df = results_df
-            else:
-                if metric_value > best_metric_value:
-                    best_metric_value = metric_value
-                    best_params = params
-                    best_results_df = results_df
+    for i, values in enumerate(param_combinations, 1):
+        params = dict(zip(keys, values))
+        param_str = "_".join(f"{k}={v}" for k, v in sorted(params.items()))
+        param_hash = hashlib.md5(param_str.encode()).hexdigest()[:8]
+        filename = f"{title}_{ticker}_{param_hash}.parquet"
+        filepath = os.path.join("data/optimization_testcases", filename)
 
-            results_dfs.append(results_df)
+        if os.path.exists(filepath):
+            result_df = pd.read_parquet(filepath)
+            result_df.attrs['params'] = params
+            result_df.attrs['title'] = title
+            result_df.attrs['ticker'] = ticker
+            print(f"Loaded from cache ({i}/{total_combinations}): {filepath}")
+        else:
+            print(f"Evaluating ({i}/{total_combinations}): " + ", ".join(f"{k}={v}" for k, v in params.items()))
+            metric_value, params, result_df = evaluate_strategy(strategy_class, df, params, strategy_settings, performance_metric)
+            result_df.to_parquet(filepath)
+            print(f"Saved: {filepath}")
+
+        results_dfs.append(result_df)
+
+        metric_func = METRIC_FUNCTIONS[performance_metric]
+        metric_value = metric_func(result_df)
+
+        is_better = (
+            metric_value < best_metric_value if performance_metric == 'max_drawdown'
+            else metric_value > best_metric_value
+        )
+
+        if is_better:
+            best_metric_value = metric_value
+            best_params = params
+            best_results_df = result_df
 
     print(f"\nBest {performance_metric}: {best_metric_value:.4f}")
     print(f"Best Parameters: {best_params}")
 
-    # Plot equity curves for all combinations, highlighting the best one
     plot_grid_search_equity_curves(results_dfs, best_params)
 
     return results_dfs, best_params, best_results_df
