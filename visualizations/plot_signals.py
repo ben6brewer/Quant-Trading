@@ -52,10 +52,10 @@ def plot_signals(dataframe):
     if 'close' not in dataframe.columns or 'signal' not in dataframe.columns:
         print("DataFrame must contain 'close' and 'signal' columns.")
         return
-
+    
     df = dataframe.copy()
-    df.title = dataframe.title
-    df.ticker = dataframe.ticker
+    df.attrs.update(dataframe.attrs)
+
     df.index = pd.to_datetime(df['date']) if 'date' in df.columns else pd.to_datetime(df.index)
 
     # Create two subplots: top is 3x taller than bottom
@@ -94,7 +94,8 @@ def plot_signals(dataframe):
     ax_price.scatter(exit_signals.index, exit_signals['close'], marker='o', color='blue', label='Exit to Cash', s=80, zorder=5)
     ax_price.scatter(partial_exit_signals.index, partial_exit_signals['close'], marker='o', color='purple', label='Partial Exit', s=80, zorder=5)
 
-    ax_price.set_title(f"{df.ticker} {df.title} Signals".strip())
+    ax_price.set_title(f"{df.attrs.get('ticker')} {df.attrs.get('title')} Signals")
+
     ax_price.set_ylabel('Price')
     ax_price.legend(loc='upper left')
     ax_price.grid(True)

@@ -16,7 +16,7 @@ REQUIRED_PARAMS = ["ticker", "period", "interval"]
 def fetch_data_for_strategy(strategy_settings):
     """
     Fetch historical data for a single ticker in strategy_settings.
-    Returns a DataFrame with custom attributes 'title' and 'ticker'.
+    Returns a DataFrame with custom attributes 'title' and 'ticker' stored in .attrs.
     """
     missing_params = [param for param in REQUIRED_PARAMS if param not in strategy_settings]
     if missing_params:
@@ -38,25 +38,24 @@ def fetch_data_for_strategy(strategy_settings):
         df = fetch_fear_and_greed_index(period=period, interval=interval)
         if df.empty:
             return df
-        df.ticker = ticker
-        df.title = strategy_title
+        df.attrs['ticker'] = ticker
+        df.attrs['title'] = strategy_title
         return df
+
     elif strategy_title == "VIX Strategy":
         vix_df = fetch_vix_historical_data()
         if ticker == "SPY":
             spy_df = fetch_spy_historical_data()
-
-            # Merge on 'date'
             merged_df = pd.merge(spy_df, vix_df, on="date", how="inner")
-            merged_df.title = strategy_title
-            merged_df.ticker = ticker
+            merged_df.attrs['title'] = strategy_title
+            merged_df.attrs['ticker'] = ticker
             return merged_df
+
         if ticker == "BTC-USD":
             btc_df = fetch_btc_historical_data()
-
             merged_df = pd.merge(btc_df, vix_df, on="date", how="inner")
-            merged_df.title = strategy_title
-            merged_df.ticker = ticker
+            merged_df.attrs['title'] = strategy_title
+            merged_df.attrs['ticker'] = ticker
             return merged_df
 
     # Standard logic for other strategies
@@ -112,6 +111,8 @@ def fetch_data_for_strategy(strategy_settings):
                 except Exception as e:
                     print(f"Warning: Could not convert index to datetime for {ticker}: {e}")
 
-    df.ticker = ticker
-    df.title = strategy_title
+    # Set metadata via .attrs
+    df.attrs['ticker'] = ticker
+    df.attrs['title'] = strategy_title
+
     return df
