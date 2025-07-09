@@ -26,19 +26,20 @@ strategy_list = [
     (CryptoSentimentStrategy, CRYPTO_SENTIMENT_STRATEGY_SETTINGS),
     (FiftyWeekMAStrategy, FIFTY_WEEK_MA_STRATEGY_SETTINGS),
     (VixBtcStrategy, VIX_BTC_STRATEGY_SETTINGS),
-    (VixSpyStrategy, VIX_SPY_STRATEGY_SETTINGS)
-    ]
+    (VixSpyStrategy, VIX_SPY_STRATEGY_SETTINGS),
+    (SlowFastMAStrategy, SLOW_FAST_MA_STRATEGY_SETTINGS),
+]    
 
 def main():
 
-    # compare_strategies(strategy_list)
+    compare_strategies(strategy_list)
     # run_slow_fast_ma_strategy()
     # run_fifty_week_ma_strategy()
     # run_crypto_sentiment_strategy()
     # run_vix_spy_strategy()
     # run_vix_btc_strategy()
     # run_strategy_grid_search(strategy_class=VixSpyStrategy, strategy_settings=VIX_SPY_STRATEGY_SETTINGS, performance_metric='sharpe')
-    run_strategy_grid_search(strategy_class=SlowFastMAStrategy, strategy_settings=SLOW_FAST_MA_STRATEGY_SETTINGS, performance_metric='sharpe')
+    # run_strategy_grid_search(strategy_class=SlowFastMAStrategy, strategy_settings=SLOW_FAST_MA_STRATEGY_SETTINGS, performance_metric='sharpe')
     
 
 def compare_strategies(strategy_class_and_settings_list):

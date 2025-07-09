@@ -52,8 +52,12 @@ SLOW_FAST_MA_STRATEGY_SETTINGS = {
     "interval": "1d",
     'param_validation': lambda params: params.get('slow_ma', 0) > params.get('fast_ma', 0),
     "optimization_params": {
-        "slow_ma": (1, 400.0, 100),
-        "fast_ma": (1, 200.0, 100),
+        "slow_ma": (1, 400.0, 1),
+        "fast_ma": (1, 200.0, 1),
+    },
+    "optimized_params": {
+        "slow_ma": 121,
+        "fast_ma": 1
     }
 }
 

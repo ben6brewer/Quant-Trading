@@ -4,28 +4,37 @@ import pandas as pd
 pd.set_option('future.no_silent_downcasting', True)
 import numpy as np
 from strategies.base_strategy import BaseStrategy
+from config.universe_config import SLOW_FAST_MA_STRATEGY_SETTINGS
+
 
 class SlowFastMAStrategy(BaseStrategy):
-    def __init__(self, slow_window: int = 230, fast_window: int = 100):
+    def __init__(self, slow_ma: int = SLOW_FAST_MA_STRATEGY_SETTINGS['optimized_params']['slow_ma'], fast_ma: int = SLOW_FAST_MA_STRATEGY_SETTINGS['optimized_params']['fast_ma']):
         """
-        slow_window: int, period for slow moving average (e.g. 50 days)
-        fast_window: int, period for fast moving average (e.g. 10 days)
+        Initialize the strategy with slow and fast moving average periods.
+
+        Args:
+            slow_ma (int): Period for the slow moving average (e.g. 230).
+            fast_ma (int): Period for the fast moving average (e.g. 100).
+
+        Raises:
+            ValueError: If fast_ma is greater than or equal to slow_ma.
         """
-        if fast_window >= slow_window:
-            raise ValueError("fast_window should be smaller than slow_window")
-        self.slow_window = slow_window
-        self.fast_window = fast_window
+        self.slow_ma = int(slow_ma)
+        self.fast_ma = int(fast_ma)    
+        if self.fast_ma >= self.slow_ma:
+            raise ValueError(f"Invalid parameters: fast_ma ({self.fast_ma}) must be less than slow_ma ({self.slow_ma})")
+
 
     def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
         df = data.copy()
         df.attrs.update(data.attrs)
 
-        # Store MA window sizes as metadata for plotting
-        df.attrs['fast_ma_window'] = self.fast_window
-        df.attrs['slow_ma_window'] = self.slow_window
+        # Store MA ma sizes as metadata for plotting
+        df.attrs['fast_ma_ma'] = self.fast_ma
+        df.attrs['slow_ma_ma'] = self.slow_ma
 
-        df['slow_ma'] = df['close'].rolling(window=self.slow_window).mean()
-        df['fast_ma'] = df['close'].rolling(window=self.fast_window).mean()
+        df['slow_ma'] = df['close'].rolling(window=self.slow_ma).mean()
+        df['fast_ma'] = df['close'].rolling(window=self.fast_ma).mean()
 
         df['signal'] = np.nan
 
