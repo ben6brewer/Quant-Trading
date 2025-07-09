@@ -1,5 +1,6 @@
 # utils/plot_equity_curve.py
 
+import itertools
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
@@ -108,39 +109,77 @@ def plot_multiple_equity_curves(results_dfs, normalize=True):
     plt.tight_layout()
     plt.show()
 
+import matplotlib.dates as mdates
 
-def plot_grid_search_equity_curves(results_dfs, best_params):
+def plot_grid_search_equity_curves(results_dfs, best_params, benchmark_df=None):
     """
-    Plots equity curves from a grid search, highlighting the curve with the best parameters.
+    Plots equity curves from a grid search, highlighting the best-performing strategy,
+    and optionally overlays a buy-and-hold benchmark.
 
     Args:
         results_dfs (list of pd.DataFrame): Each with 'total_equity' and a .attrs['params'] dict.
         best_params (dict): The best parameter set to highlight.
+        benchmark_df (pd.DataFrame, optional): A buy-and-hold benchmark DataFrame to overlay.
     """
-    latest_start = max(df.index.min() for df in results_dfs)
+    if len(results_dfs) == 0:
+        print("⚠️ No results to plot.")
+        return
 
+    # Align all DataFrames to the latest common start date
+    latest_start = max(df.index.min() for df in results_dfs)
     aligned_dfs = []
+
     for df in results_dfs:
         trimmed_df = df[df.index >= latest_start].copy()
         trimmed_df.attrs.update(df.attrs)
         aligned_dfs.append(trimmed_df)
 
-    plt.figure(figsize=(14, 7))
+    # Also align benchmark if provided
+    if benchmark_df is not None:
+        benchmark_df = benchmark_df[benchmark_df.index >= latest_start].copy()
 
-    # First, plot all non-best lines
+    plt.figure(figsize=(14, 7))
+    color_cycle = itertools.cycle(plt.cm.tab20.colors)
+
+    # Plot all non-best strategies
     for df in aligned_dfs:
         params = df.attrs.get('params')
         if params != best_params:
-            plt.plot(df.index, df['total_equity'], linewidth=0.25, alpha=0.25)
+            plt.plot(
+                df.index,
+                df['total_equity'],
+                linewidth=0.5,
+                alpha=1,
+                color=next(color_cycle),
+                zorder=1
+            )
 
-    # Then, plot only the best line so it's on top
+    # Highlight best-performing strategy
     for df in aligned_dfs:
         params = df.attrs.get('params')
         if params == best_params:
-            label = f"VIX:{params['vix_threshold']} TP:{params['take_profit_pct']:.2f} Exit:{params['partial_exit_pct']:.2f}"
-            plt.plot(df.index, df['total_equity'], label=label, linewidth=2.5, alpha=1.0, color='aqua')
+            label_parts = [f"{k}:{v:.2f}" if isinstance(v, float) else f"{k}:{v}" for k, v in params.items()]
+            plt.plot(
+                df.index,
+                df['total_equity'],
+                label=", ".join(label_parts),
+                linewidth=2.5,
+                color='lawngreen',
+                zorder=3
+            )
 
-    plt.title("Equity Curve Comparison", fontsize=18)
+    if benchmark_df is not None:
+        plt.plot(
+            benchmark_df.index,
+            benchmark_df['total_equity'],
+            label=f"{results_dfs[0].attrs.get('ticker')} Benchmark",
+            linewidth=2,
+            color='blue',
+            zorder=4
+        )
+
+    # Plot formatting
+    plt.title(f"Equity Curve Comparison - {results_dfs[0].attrs.get('title', 'Strategy')}", fontsize=18)
     plt.xlabel("Date", fontsize=14)
     plt.ylabel("Total Equity ($)", fontsize=14)
     plt.grid(True, linestyle='--', alpha=0.5)

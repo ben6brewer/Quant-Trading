@@ -31,8 +31,19 @@ def plot_fng(ax, df):
     return line
 
 def plot_moving_averages(ax, df):
-    if '50_week_ma' in df.columns:
-        ax.plot(df.index, df['50_week_ma'], label='50 Week MA', alpha=0.75, zorder=2)
+    for col in df.columns:
+        if '_ma' in col.lower():
+            # Use specific labels for fast/slow MAs if window info is available
+            if col == 'fast_ma' and 'fast_ma_window' in df.attrs:
+                label = f"Fast MA ({df.attrs['fast_ma_window']})"
+            elif col == 'slow_ma' and 'slow_ma_window' in df.attrs:
+                label = f"Slow MA ({df.attrs['slow_ma_window']})"
+            else:
+                digits = ''.join(filter(str.isdigit, col))
+                label = f"MA ({digits})" if digits else col.replace('_', ' ').title()
+
+            ax.plot(df.index, df[col], label=label, alpha=0.75, zorder=2)
+
 
 def plot_vix(ax, df):
     """
@@ -55,16 +66,21 @@ def plot_signals(dataframe):
     
     df = dataframe.copy()
     df.attrs.update(dataframe.attrs)
-
     df.index = pd.to_datetime(df['date']) if 'date' in df.columns else pd.to_datetime(df.index)
 
-    # Create two subplots: top is 3x taller than bottom
-    fig, (ax_price, ax_vix) = plt.subplots(
-        2, 1, 
-        figsize=(14, 8), 
-        gridspec_kw={'height_ratios': [3, 1]}, 
-        sharex=True
-    )
+    has_vix = 'vix' in df.columns
+
+    if has_vix:
+        # Create two subplots: top is 3x taller than bottom
+        fig, (ax_price, ax_vix) = plt.subplots(
+            2, 1, 
+            figsize=(14, 8), 
+            gridspec_kw={'height_ratios': [3, 1]}, 
+            sharex=True
+        )
+    else:
+        # Create only one subplot if no VIX data
+        fig, ax_price = plt.subplots(figsize=(14, 6))
 
     # Plot price or F&G colored line on top
     if 'F&G' in df.columns:
@@ -100,16 +116,18 @@ def plot_signals(dataframe):
     ax_price.legend(loc='upper left')
     ax_price.grid(True)
 
-    # Plot VIX on bottom subplot
-    plot_vix(ax_vix, df)
-    ax_vix.set_xlabel('Date')
+    if has_vix:
+        # Plot VIX on bottom subplot
+        plot_vix(ax_vix, df)
+        ax_vix.set_xlabel('Date')
+        ax_vix.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+        ax_vix.xaxis.set_major_locator(mdates.AutoDateLocator())
 
-    # Format x-axis dates
-    ax_vix.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    ax_vix.xaxis.set_major_locator(mdates.AutoDateLocator())
-
-    plt.setp(ax_price.get_xticklabels(), visible=False)  # Hide top x-axis labels
+        plt.setp(ax_price.get_xticklabels(), visible=False)  # Hide top x-axis labels
+    else:
+        ax_price.set_xlabel('Date')
 
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
+

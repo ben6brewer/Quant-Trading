@@ -32,8 +32,8 @@ VIX_SPY_STRATEGY_SETTINGS = {
     "period": "max",
     "interval": "1d",
     "optimization_params": {
-        "vix_threshold": (1.0, 100.0, 5),
-        "take_profit_pct": (0.01, 1.0, 0.05),
+        "vix_threshold": (1.0, 100.0, 20),
+        "take_profit_pct": (0.01, 1.0, 0.2),
         "partial_exit_pct": (0.01, 0.25, 0.05)
     }
 }
@@ -45,6 +45,17 @@ VIX_BTC_STRATEGY_SETTINGS = {
     "interval": "1d",
 }
 
+SLOW_FAST_MA_STRATEGY_SETTINGS = {
+    "title": "Slow Fast MA Strategy",
+    "ticker": "BTC-USD",
+    "period": "max",
+    "interval": "1d",
+    'param_validation': lambda params: params.get('slow_ma', 0) > params.get('fast_ma', 0),
+    "optimization_params": {
+        "slow_ma": (1, 400.0, 100),
+        "fast_ma": (1, 200.0, 100),
+    }
+}
 
 BACKTEST_CONFIG = {
     "initial_cash": 100000,

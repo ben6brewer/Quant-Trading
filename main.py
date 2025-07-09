@@ -9,6 +9,7 @@ from strategies.crypto_sentiment_strategy import *
 
 from strategies.vix_btc_strategy import *
 from strategies.vix_spy_strategy import *
+from strategies.slow_fast_ma_strategy import *
 from utils.yfinance_data_fetch import *
 from visualizations.plot_signals import *
 from visualizations.plot_equity_curve import *
@@ -31,12 +32,13 @@ strategy_list = [
 def main():
 
     # compare_strategies(strategy_list)
-    
+    # run_slow_fast_ma_strategy()
     # run_fifty_week_ma_strategy()
     # run_crypto_sentiment_strategy()
-    run_vix_spy_strategy()
+    # run_vix_spy_strategy()
     # run_vix_btc_strategy()
     # run_strategy_grid_search(strategy_class=VixSpyStrategy, strategy_settings=VIX_SPY_STRATEGY_SETTINGS, performance_metric='sharpe')
+    run_strategy_grid_search(strategy_class=SlowFastMAStrategy, strategy_settings=SLOW_FAST_MA_STRATEGY_SETTINGS, performance_metric='sharpe')
     
 
 def compare_strategies(strategy_class_and_settings_list):
@@ -122,9 +124,9 @@ def run_fifty_week_ma_strategy():
     plot_signals(signal_df)
     results_df = backtester.run_backtest(signal_df)
     # pretty_print_df(results_df.tail())
-    plot_equity_curve(results_df)
-    plot_equity_vs_benchmark(results_df)
-    print_performance_metrics(results_df)
+    # plot_equity_curve(results_df)
+    # plot_equity_vs_benchmark(results_df)
+    # print_performance_metrics(results_df)
 
 def run_vix_spy_strategy():
     df = fetch_data_for_strategy(VIX_SPY_STRATEGY_SETTINGS)
@@ -168,5 +170,17 @@ def run_vix_btc_strategy():
     plot_equity_curve(results_df)
     plot_equity_vs_benchmark(results_df)
     # print_performance_metrics(results_df)
+
+def run_slow_fast_ma_strategy():
+    df = fetch_data_for_strategy(SLOW_FAST_MA_STRATEGY_SETTINGS)
+    strategy = SlowFastMAStrategy()
+    backtester = BacktestEngine()
+    signal_df = strategy.generate_signals(df)
+    plot_signals(signal_df)
+    results_df = backtester.run_backtest(signal_df)
+    plot_equity_curve(results_df)
+    plot_equity_vs_benchmark(results_df)
+    print_performance_metrics(results_df)
+
 if __name__ == "__main__":
     main()

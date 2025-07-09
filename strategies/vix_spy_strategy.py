@@ -5,7 +5,7 @@ import numpy as np
 from strategies.base_strategy import BaseStrategy
 
 class VixSpyStrategy(BaseStrategy):
-    def __init__(self, vix_threshold: float = 45.0, take_profit_pct: float = 1, partial_exit_pct: float = 0.1):
+    def __init__(self, vix_threshold, take_profit_pct, partial_exit_pct):
         self.vix_threshold = vix_threshold
         self.take_profit_pct = take_profit_pct
         self.partial_exit_pct = partial_exit_pct

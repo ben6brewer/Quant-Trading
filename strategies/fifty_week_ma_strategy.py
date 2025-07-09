@@ -13,7 +13,7 @@ class FiftyWeekMAStrategy(BaseStrategy):
         data_copy = data.copy()
         data_copy.attrs['title'] = data.attrs.get('title', 'Strategy')
         data_copy.attrs['ticker'] = data.attrs.get('ticker', 'Unknown')
-
+        data_copy.attrs.update(data_copy.attrs)
         data_copy['50_week_ma'] = data_copy['close'].rolling(window=self.window_days).mean()
 
         upper_bound = data_copy['50_week_ma'] * (1 + self.threshold_pct)
