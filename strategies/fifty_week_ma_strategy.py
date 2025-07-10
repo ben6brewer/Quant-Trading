@@ -14,16 +14,25 @@ class FiftyWeekMAStrategy(BaseStrategy):
         data_copy.attrs['title'] = data.attrs.get('title', 'Strategy')
         data_copy.attrs['ticker'] = data.attrs.get('ticker', 'Unknown')
         data_copy.attrs.update(data_copy.attrs)
+
+        # Calculate the 50-week moving average
         data_copy['50_week_ma'] = data_copy['close'].rolling(window=self.window_days).mean()
 
+        # Define upper and lower thresholds
         upper_bound = data_copy['50_week_ma'] * (1 + self.threshold_pct)
         lower_bound = data_copy['50_week_ma'] * (1 - self.threshold_pct)
 
-        data_copy['signal'] = 0
-        data_copy.loc[data_copy['close'] > upper_bound, 'signal'] = 1
-        data_copy.loc[data_copy['close'] < lower_bound, 'signal'] = -1
+        # Use yesterday's close to generate today's signal
+        prev_close = data_copy['close'].shift(1)
 
-        data_copy['signal'] = data_copy['signal'].shift(1).fillna(0).astype(int)
-        data_copy['signal'] = data_copy['signal'].replace(0, np.nan).ffill().fillna(0).astype(int)
+        signal = pd.Series(0, index=data_copy.index)
+        signal[prev_close > upper_bound] = 1
+        signal[prev_close < lower_bound] = -1
+
+        # Shift signal forward so trade occurs the next day
+        signal = signal.shift(1).fillna(0).astype(int)
+
+        # Carry forward the position until an exit signal
+        data_copy['signal'] = signal.replace(0, np.nan).ffill().fillna(0).astype(int)
 
         return data_copy

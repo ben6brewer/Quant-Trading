@@ -17,14 +17,23 @@ class VixSpyStrategy(BaseStrategy):
         title = data.attrs.get("title", "VIX Strategy")
         ticker = data.attrs.get("ticker", "Unknown")
 
+        # Shift VIX and close to avoid using future data
+        df['vix_prev'] = df['vix'].shift(1)
+        df['close_prev'] = df['close'].shift(1)
+
         signal = []
         entry_price = None
         current_signal = 1 - self.partial_exit_pct
         took_partial_profit = False
 
         for idx, row in df.iterrows():
-            vix = row['vix']
-            price = row['close']
+            vix = row['vix_prev']
+            price = row['close_prev']
+
+            # Skip until we have enough data
+            if pd.isna(vix) or pd.isna(price):
+                signal.append(current_signal)
+                continue
 
             # Check for VIX spike and currently not 100% invested
             if vix >= self.vix_threshold:
@@ -45,4 +54,5 @@ class VixSpyStrategy(BaseStrategy):
         df['signal'] = signal
         df.attrs['title'] = title
         df.attrs['ticker'] = ticker
+
         return df

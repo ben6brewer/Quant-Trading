@@ -52,20 +52,32 @@ SLOW_FAST_MA_STRATEGY_SETTINGS = {
     "interval": "1d",
     'param_validation': lambda params: params.get('slow_ma', 0) > params.get('fast_ma', 0),
     "optimization_params": {
-        "slow_ma": (1, 400.0, 1),
+        "slow_ma": (1, 308.0, 5),
         "fast_ma": (1, 200.0, 1),
     },
     "optimized_params": {
-        "slow_ma": 121,
-        "fast_ma": 1
+        "slow_ma": 124,
+        "fast_ma": 2
     }
+}
+
+BTC_BUY_AND_HOLD_STRATEGY_SETTINGS = {
+    "title": "Buy and Hold",
+    "ticker": "BTC-USD",
+    "period": "max",
+    "interval": "1d",
+}
+
+SPY_BUY_AND_HOLD_STRATEGY_SETTINGS = {
+    "title": "Buy and Hold",
+    "ticker": "SPY",
+    "period": "max",
+    "interval": "1d",
 }
 
 BACKTEST_CONFIG = {
     "initial_cash": 100000,
-    "commission_per_trade": 1.0,           # Flat fee per trade
-    "position_size_pct": 100.0,            # Fraction of portfolio to allocate per signal
-    "slippage_pct": 0.001,                 # 0.1% slippage
-    "rebalance_on": "signal_change",       # Could also be 'weekly', 'monthly', etc.
-    "trade_on_close": True                 # Whether to trade on the closing price of the signal day
+    "commission_pct_per_trade": 0.002,  # 0.2%
+    "slippage_pct": 0.001,               # 0.1%
 }
+

@@ -14,8 +14,12 @@ class VixBtcStrategy(BaseStrategy):
         df = data.copy()
 
         # Use .attrs for metadata
-        title = data.attrs.get("title", "VIX Strategy")
+        title = data.attrs.get("title", "VIX BTC Strategy")
         ticker = data.attrs.get("ticker", "Unknown")
+
+        # Shift VIX and close to simulate decision-making with prior day's info
+        df['vix_prev'] = df['vix'].shift(1)
+        df['close_prev'] = df['close'].shift(1)
 
         signal = []
         entry_price = None
@@ -23,17 +27,21 @@ class VixBtcStrategy(BaseStrategy):
         took_partial_profit = False
 
         for idx, row in df.iterrows():
-            vix = row['vix']
-            price = row['close']
+            vix = row['vix_prev']
+            price = row['close_prev']
 
-            # Check for VIX spike and currently not 100% invested
+            if pd.isna(vix) or pd.isna(price):
+                signal.append(current_signal)
+                continue
+
+            # VIX spike — go fully long
             if vix >= self.vix_threshold:
                 if current_signal < 1.0:
                     current_signal = 1.0
                     entry_price = price
                     took_partial_profit = False
 
-            # Check for take-profit only if fully invested and not already took partial profit
+            # Profit target hit — take partial profits
             elif current_signal == 1.0 and entry_price is not None and not took_partial_profit:
                 gain = (price - entry_price) / entry_price
                 if gain >= self.take_profit_pct:

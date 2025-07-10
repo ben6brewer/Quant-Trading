@@ -14,13 +14,37 @@ def calculate_cumulative_returns(df: pd.DataFrame) -> float:
     return (1 + returns).prod() - 1
 
 def calculate_cagr(df: pd.DataFrame) -> float:
+    # Ensure index is datetime
+    if not pd.api.types.is_datetime64_any_dtype(df.index):
+        try:
+            df.index = pd.to_datetime(df.index)
+        except Exception as e:
+            print(f"❌ Error converting index to datetime in CAGR: {e}")
+            return 0
+
+    try:
+        start_date = df.index[0]
+        end_date = df.index[-1]
+        days = (end_date - start_date).days
+    except Exception as e:
+        print(f"❌ Error calculating duration in CAGR: {e}")
+        return 0
+
     start_value = df['total_equity'].iloc[0]
     end_value = df['total_equity'].iloc[-1]
-    days = (df.index[-1] - df.index[0]).days
-    if days == 0:
+
+    if days == 0 or start_value <= 0 or end_value <= 0:
         return 0
+
     years = days / CRYPTO_TRADING_DAYS_PER_YEAR
-    return (end_value / start_value) ** (1 / years) - 1
+    total_return = (end_value / start_value) - 1
+
+    if total_return >= 0:
+        cagr = (end_value / start_value) ** (1 / years) - 1
+    else:
+        cagr = -((start_value / end_value) ** (1 / years) - 1)
+
+    return cagr
 
 def calculate_sharpe_ratio(df: pd.DataFrame, risk_free_rate: float = 0.02) -> float:
     returns = calculate_daily_returns(df)
@@ -49,108 +73,91 @@ def calculate_volatility(df: pd.DataFrame) -> float:
 
 def extract_trades(df: pd.DataFrame) -> list:
     trades = []
-    position = None
+    position = 0.0
     entry_price = None
     entry_date = None
-    signal_prev = 0
 
     for date, row in df.iterrows():
         signal = row['signal']
         price = row['close']
 
-        if signal != signal_prev and signal != 0:
-            if position is not None:
-                trade_return = (price - entry_price) / entry_price if position == 1 else (entry_price - price) / entry_price
+        if signal != position:
+            if position != 0 and entry_price is not None:
+                if position > 0:
+                    trade_return = (price - entry_price) / entry_price
+                else:
+                    trade_return = (entry_price - price) / entry_price
+
                 trades.append({
                     'entry_date': entry_date,
                     'exit_date': date,
-                    'direction': 'long' if position == 1 else 'short',
+                    'direction': 'long' if position > 0 else 'short',
                     'return': trade_return
                 })
-            position = signal
-            entry_price = price
-            entry_date = date
 
-        elif signal == 0 and position is not None:
-            trade_return = (price - entry_price) / entry_price if position == 1 else (entry_price - price) / entry_price
-            trades.append({
-                'entry_date': entry_date,
-                'exit_date': date,
-                'direction': 'long' if position == 1 else 'short',
-                'return': trade_return
-            })
-            position = None
-            entry_price = None
-            entry_date = None
+            if signal != 0:
+                entry_price = price
+                entry_date = date
+                position = signal
+            else:
+                position = 0
+                entry_price = None
+                entry_date = None
 
-        signal_prev = signal
+    if position != 0 and entry_price is not None:
+        final_price = df['close'].iloc[-1]
+        final_date = df.index[-1]
+        if position > 0:
+            trade_return = (final_price - entry_price) / entry_price
+        else:
+            trade_return = (entry_price - final_price) / entry_price
+
+        trades.append({
+            'entry_date': entry_date,
+            'exit_date': final_date,
+            'direction': 'long' if position > 0 else 'short',
+            'return': trade_return
+        })
 
     return trades
 
-def print_performance_metrics(df: pd.DataFrame):
-    # Ensure index is datetime based on 'date' column if needed
-    if 'date' in df.columns:
-        df['date'] = pd.to_datetime(df['date'])
-        df.set_index('date', inplace=True)
-    elif not isinstance(df.index, pd.DatetimeIndex):
-        raise ValueError("DataFrame must have a datetime index or a 'date' column.")
+def extract_performance_metrics_dict(df: pd.DataFrame) -> dict:
+    if not pd.api.types.is_datetime64_any_dtype(df.index):
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'])
+            df.set_index('date', inplace=True)
+        else:
+            try:
+                df.index = pd.to_datetime(df.index)
+            except Exception as e:
+                print(f"❌ Failed to convert index to datetime in performance metrics: {e}")
+                return {}
 
-    # Fetch current 10Y treasury yield as risk-free rate
-    risk_free_rate = yf.Ticker("^TNX").history(period="1d")['Close'].iloc[-1] / 100
-
+    cagr = calculate_cagr(df)
+    cum_return = calculate_cumulative_returns(df)
+    sharpe = calculate_sharpe_ratio(df)
+    sortino = calculate_sortino_ratio(df)
+    max_dd = calculate_max_drawdown(df)
+    vol = calculate_volatility(df)
     trades = extract_trades(df)
     num_trades = len(trades)
     wins = [t for t in trades if t['return'] > 0]
     losses = [t for t in trades if t['return'] <= 0]
     win_rate = len(wins) / num_trades if num_trades else 0
-    avg_win = np.mean([t['return'] for t in wins]) if wins else 0
-    avg_loss = np.mean([t['return'] for t in losses]) if losses else 0
+    avg_win = sum(t['return'] for t in wins) / len(wins) if wins else 0
+    avg_loss = sum(t['return'] for t in losses) / len(losses) if losses else 0
 
-    start_date = df.index.min()
-    end_date = df.index.max()
-    num_years = (end_date - start_date).days / 365.25
-
-    print()
-    print("📈 Performance Metrics")
-    print(f"CAGR: {calculate_cagr(df) * 100:.2f}%")
-    print(f"Cumulative Return over {num_years:.2f} years: {calculate_cumulative_returns(df) * 100:.2f}%")
-    print(f"Sharpe Ratio: {calculate_sharpe_ratio(df, risk_free_rate):.4f}")
-    print(f"Sortino Ratio: {calculate_sortino_ratio(df, risk_free_rate):.4f}")
-    print(f"Max Drawdown: {calculate_max_drawdown(df) * 100:.2f}%")
-    print(f"Volatility: {calculate_volatility(df) * 100:.2f}%")
-    print(f"Number of Trades: {num_trades}")
-    print(f"Number of Wins: {len(wins)}")
-    print(f"Number of Losses: {len(losses)}")
-    print(f"Win Rate: {win_rate * 100:.2f}%")
-    print(f"Average Win (%): {avg_win * 100:.2f}%")
-    print(f"Average Loss (%): {avg_loss * 100:.2f}%")
-    print()
-
-    print_baseline_performance_metrics(df)
-
-
-def print_baseline_performance_metrics(df: pd.DataFrame, risk_free_rate: float = 0.0429):
-    # Ensure index is datetime based on 'date' column if needed
-    if 'date' in df.columns:
-        df['date'] = pd.to_datetime(df['date'])
-        df.set_index('date', inplace=True)
-    elif not isinstance(df.index, pd.DatetimeIndex):
-        raise ValueError("DataFrame must have a datetime index or a 'date' column.")
-
-    start_date = df.index.min()
-    end_date = df.index.max()
-    num_years = (end_date - start_date).days / 365.25
-
-    # Create price-only equity curve for baseline
-    asset_df = pd.DataFrame(index=df.index)
-    asset_df['total_equity'] = df['close']
-
-    print()
-    print("📊 Baseline Asset Performance Metrics")
-    print(f"CAGR: {calculate_cagr(asset_df) * 100:.2f}%")
-    print(f"Cumulative Return over {num_years:.2f} years: {calculate_cumulative_returns(asset_df) * 100:.2f}%")
-    print(f"Sharpe Ratio: {calculate_sharpe_ratio(asset_df, risk_free_rate):.4f}")
-    print(f"Sortino Ratio: {calculate_sortino_ratio(asset_df, risk_free_rate):.4f}")
-    print(f"Max Drawdown: {calculate_max_drawdown(asset_df) * 100:.2f}%")
-    print(f"Volatility: {calculate_volatility(asset_df) * 100:.2f}%")
-    print()
+    return {
+        "Title": df.attrs.get('title', 'Unknown'),
+        "Ticker": df.attrs.get('ticker', 'Unknown'),
+        "CAGR (%)": cagr * 100,
+        "Cumulative Return (%)": cum_return * 100,
+        "Sharpe Ratio": sharpe,
+        "Sortino Ratio": sortino,
+        "Max Drawdown (%)": max_dd * 100,
+        "Volatility (%)": vol * 100,
+        "Number of Trades": num_trades,
+        "Win Rate (%)": win_rate * 100,
+        "Avg Win (%)": avg_win * 100,
+        "Avg Loss (%)": avg_loss * 100
+    }

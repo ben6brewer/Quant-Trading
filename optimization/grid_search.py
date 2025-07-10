@@ -1,7 +1,7 @@
 # optimization/grid_search.py
 
 from config.universe_config import *
-from utils.yfinance_data_fetch import *
+from utils.data_fetch import *
 from backtest.performance_metrics import *
 from backtest.backtest_engine import *
 from visualizations.plot_equity_curve import *

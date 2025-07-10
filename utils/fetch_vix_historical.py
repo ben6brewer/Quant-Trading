@@ -14,7 +14,7 @@ def fetch_vix_historical_data(period="max", interval="1d", filepath=os.path.join
         try:
             df = pd.read_parquet(filepath)
             latest_date = df['date'].max()
-            today = pd.to_datetime('today').normalize().date()
+            today = pd.to_datetime('today').normalize()
 
             if latest_date >= today:
                 print(f"Cached VIX data is up-to-date (latest: {latest_date}).")
@@ -39,17 +39,11 @@ def fetch_vix_historical_data(period="max", interval="1d", filepath=os.path.join
     df = df.reset_index()
     if 'Date' in df.columns:
         df = df.rename(columns={'Date': 'date'})
-    df['date'] = pd.to_datetime(df['date']).dt.date
+    df['date'] = pd.to_datetime(df['date'])  # keep as datetime64, no .dt.date
 
     # Keep only the 'high' column and rename it to 'vix'
     df = df[['date', 'high']].rename(columns={'high': 'vix'})
 
-    # --- Original full-data version (commented out for future use) ---
-    # df.to_parquet(filepath)
-    # print(f"Saved fresh VIX data to {filepath}")
-    # return df
-
-    # Save and return simplified VIX DataFrame
     df.to_parquet(filepath)
     print(f"Saved simplified VIX data (vix = high) to {filepath}")
     return df

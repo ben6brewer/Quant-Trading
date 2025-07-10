@@ -121,6 +121,7 @@ def plot_grid_search_equity_curves(results_dfs, best_params, benchmark_df=None):
         best_params (dict): The best parameter set to highlight.
         benchmark_df (pd.DataFrame, optional): A buy-and-hold benchmark DataFrame to overlay.
     """
+    print("Loading grid search results")
     if len(results_dfs) == 0:
         print("⚠️ No results to plot.")
         return

@@ -56,6 +56,5 @@ def fetch_fear_and_greed_index(period="max", interval="1d"):
     merged_df.set_index('date', inplace=True)
 
     merged_df.to_parquet(combined_filepath)
-    print(f"Saved merged BTC + Fear & Greed data to {combined_filepath}")
 
     return merged_df

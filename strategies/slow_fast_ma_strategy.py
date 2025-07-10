@@ -29,23 +29,22 @@ class SlowFastMAStrategy(BaseStrategy):
         df = data.copy()
         df.attrs.update(data.attrs)
 
-        # Store MA ma sizes as metadata for plotting
         df.attrs['fast_ma_ma'] = self.fast_ma
         df.attrs['slow_ma_ma'] = self.slow_ma
 
         df['slow_ma'] = df['close'].rolling(window=self.slow_ma).mean()
         df['fast_ma'] = df['close'].rolling(window=self.fast_ma).mean()
 
-        df['signal'] = np.nan
-
         fast_above = (df['fast_ma'] > df['slow_ma']).astype(bool)
         fast_above_shifted = fast_above.shift(1).fillna(False).astype(bool)
 
-        # Detect crossovers
-        df.loc[(fast_above) & (~fast_above_shifted), 'signal'] = 1   # Golden cross (go long)
-        df.loc[(~fast_above) & (fast_above_shifted), 'signal'] = -1  # Death cross (go short)
+        df['raw_signal'] = np.nan
+        df.loc[(fast_above) & (~fast_above_shifted), 'raw_signal'] = 1
+        df.loc[(~fast_above) & (fast_above_shifted), 'raw_signal'] = -1
 
-        # Hold signal forward
-        df['signal'] = df['signal'].ffill().fillna(0).astype(int)
+        # Only forward-fill after both MAs are valid
+        df['signal'] = df['raw_signal']
+        df.loc[df['slow_ma'].isna() | df['fast_ma'].isna(), 'signal'] = np.nan
+        df['signal'] = df['signal'].shift(1).ffill().fillna(0).astype(int)
 
         return df

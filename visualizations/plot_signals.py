@@ -91,18 +91,21 @@ def plot_signals(dataframe):
 
     plot_moving_averages(ax_price, df)
 
-    # Plot signals on price plot
+    # Calculate signal changes
     signal_diff = df['signal'].diff().fillna(0)
     change_points = df[signal_diff != 0]
 
+    # Align signal_diff index with change_points index to avoid warnings
+    signal_diff_cp = signal_diff.loc[change_points.index]
+
     buy_signals = change_points[change_points['signal'] == 1.0]
     sell_signals = change_points[change_points['signal'] == -1.0]
-    exit_signals = change_points[(change_points['signal'] == 0.0) & (signal_diff.abs() >= 0.5)]
+    exit_signals = change_points[(change_points['signal'] == 0.0) & (signal_diff_cp.abs() >= 0.5)]
 
     partial_exit_signals = change_points[
         (change_points['signal'] < 1.0) & 
         (change_points['signal'] > 0.0) & 
-        (signal_diff < 0)
+        (signal_diff_cp < 0)
     ]
 
     ax_price.scatter(buy_signals.index, buy_signals['close'], marker='^', color='green', label='Buy Signal', s=100, zorder=5)
@@ -130,4 +133,3 @@ def plot_signals(dataframe):
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
-
