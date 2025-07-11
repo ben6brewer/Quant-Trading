@@ -30,7 +30,7 @@ def get_cmc_fear_greed_data():
         return pd.DataFrame()
 
 
-def fetch_fear_and_greed_index(period="max", interval="1d"):
+def fetch_fear_and_greed_index_data(period="max", interval="1d"):
     btc_filepath = os.path.join(DATA_DIR, "BTC_USD.parquet")
     combined_filepath = os.path.join(DATA_DIR, "F&G_BTC_USD.parquet")
 
@@ -42,19 +42,22 @@ def fetch_fear_and_greed_index(period="max", interval="1d"):
         print("One or both data sources are empty, cannot merge.")
         return df
 
-    # Convert and merge
-    if not pd.api.types.is_datetime64_any_dtype(df['date']):
-        df['date'] = pd.to_datetime(df['date'])
-    if not pd.api.types.is_datetime64_any_dtype(fng_df['date']):
-        fng_df['date'] = pd.to_datetime(fng_df['date'])
+    # Ensure datetime dtype
+    df['date'] = pd.to_datetime(df['date'])
+    fng_df['date'] = pd.to_datetime(fng_df['date'])
 
+    # Merge
     merged_df = pd.merge(df, fng_df, on='date', how='left')
     merged_df = merged_df.dropna(subset=['F&G'])
 
+    # Add normalized F&G risk column
+    merged_df['F&G_risk'] = merged_df['F&G'] / 100
+
     # Set datetime index
-    merged_df['date'] = pd.to_datetime(merged_df['date'])
     merged_df.set_index('date', inplace=True)
 
+    # Save
     merged_df.to_parquet(combined_filepath)
 
-    return merged_df
+    # ✅ Reset index to include 'date' as a column before returning
+    return merged_df.reset_index()

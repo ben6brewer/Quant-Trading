@@ -9,6 +9,7 @@ from strategies.crypto_sentiment_strategy import *
 
 from strategies.vix_btc_strategy import *
 from utils.fetch_mvrv_historical import *
+from utils.fetch_data_for_btc_composite_risk_strategy import *
 from strategies.vix_spy_strategy import *
 from strategies.btc_buy_and_hold_strategy import *
 from strategies.spy_buy_and_hold_strategy import *
@@ -17,11 +18,11 @@ from strategies.slow_fast_ma_strategy import *
 from utils.data_fetch import *
 from visualizations.plot_signals import *
 from visualizations.plot_equity_curve import *
-from visualizations.plot_mvrv import *
+from visualizations.plot_composite_btc_risk import *
 from backtest.backtest_engine import *
 from utils.pretty_print_df import *
 from backtest.performance_metrics import *
-from utils.cmc_data_fetch import *
+from utils.fetch_fear_and_greed_index_data import *
 from optimization.grid_search import *
 import pandas as pd
 import requests
@@ -50,11 +51,8 @@ def main():
     # run_strategy_optuna_optimization(strategy_class=SlowFastMAStrategy,strategy_settings=SLOW_FAST_MA_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=50)
     # run_strategy_optuna_optimization(strategy_class=VixSpyStrategy,strategy_settings=VIX_SPY_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=1000)
     # run_strategy_optuna_optimization(strategy_class=CryptoSentimentStrategy,strategy_settings=CRYPTO_SENTIMENT_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=5000)
-    # plot_btc_mvrv_z_score(fetch_mvrv_historical_data())
-    plot_btc_mvrv_z_score_risk(fetch_mvrv_historical_data())
-    plot_btc_color_coded_mvrv_z_score_risk(fetch_mvrv_historical_data())
-
-
+    # plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy())
+    plot_btc_color_coded_risk(fetch_data_for_btc_composite_risk_strategy())
 
 def compare_strategies(strategy_class_and_settings_list):
     """

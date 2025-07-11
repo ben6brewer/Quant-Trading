@@ -6,7 +6,7 @@ import yfinance as yf
 from datetime import datetime
 
 from utils.data_utils import *
-from utils.cmc_data_fetch import *
+from utils.fetch_fear_and_greed_index_data import *
 from utils.fetch_btc_historical import *
 from utils.fetch_spy_historical import *
 from utils.fetch_vix_historical import *
@@ -35,7 +35,7 @@ def fetch_data_for_strategy(strategy_settings):
 
     # Custom behavior: Crypto Sentiment Strategy
     if strategy_title == "Crypto Sentiment Strategy":
-        df = fetch_fear_and_greed_index(period=period, interval=interval)
+        df = fetch_fear_and_greed_index_data(period=period, interval=interval)
         if df.empty:
             return df
         df.attrs['ticker'] = ticker

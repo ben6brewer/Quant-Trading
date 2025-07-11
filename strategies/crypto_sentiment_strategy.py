@@ -1,4 +1,4 @@
-from utils.cmc_data_fetch import *
+from utils.fetch_fear_and_greed_index_data import *
 import pandas as pd
 from strategies.base_strategy import BaseStrategy
 import numpy as np

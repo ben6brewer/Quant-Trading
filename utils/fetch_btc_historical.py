@@ -1,4 +1,4 @@
-#utils/fetch_btc_historical.py
+# utils/fetch_btc_historical.py
 
 import os
 import pandas as pd
@@ -13,8 +13,12 @@ def fetch_btc_historical_data(period="max", interval="1d", filepath=os.path.join
     if os.path.exists(filepath):
         try:
             df = pd.read_parquet(filepath)
-            latest_date = df['date'].max()
-            today = pd.to_datetime('today').normalize()
+
+            # ✅ Ensure 'date' column is datetime64[ns]
+            df['date'] = pd.to_datetime(df['date'])
+
+            latest_date = df['date'].max().date()
+            today = datetime.utcnow().date()
 
             if latest_date >= today:
                 print(f"Cached BTC data is up-to-date (latest: {latest_date}).")
@@ -32,10 +36,12 @@ def fetch_btc_historical_data(period="max", interval="1d", filepath=os.path.join
         return pd.DataFrame()
 
     df.columns = [col[0].lower() if isinstance(col, tuple) else col.lower() for col in df.columns]
-
     df = df.reset_index()
+
     if 'Date' in df.columns:
         df = df.rename(columns={'Date': 'date'})
+
+    # ✅ Keep as datetime for merging/analysis
     df['date'] = pd.to_datetime(df['date'])
 
     df.to_parquet(filepath)
