@@ -24,6 +24,18 @@ CRYPTO_SENTIMENT_STRATEGY_SETTINGS = {
     "ticker": "BTC-USD",
     "period": "max",
     "interval": "1d",
+    "optimization_params": {
+    "fear_threshold": (1, 100, 1),
+    "greed_threshold": (1, 100, 1),
+    "fear_days_required": (1, 100, 1),
+    "greed_days_required": (1, 100, 1)
+    },
+    "optimized_params": {
+        "fear_threshold": 22,
+        "greed_threshold": 80,
+        "fear_days_required": 20,
+        "greed_days_required": 10
+    }
 }
 
 VIX_SPY_STRATEGY_SETTINGS = {
@@ -32,9 +44,9 @@ VIX_SPY_STRATEGY_SETTINGS = {
     "period": "max",
     "interval": "1d",
     "optimization_params": {
-        "vix_threshold": (1.0, 100.0, 20),
-        "take_profit_pct": (0.01, 1.0, 0.2),
-        "partial_exit_pct": (0.01, 0.25, 0.05)
+        "vix_threshold": (1.0, 100.0, 1),
+        "take_profit_pct": (0.01, 1.0, 0.01),
+        "partial_exit_pct": (0.01, 1.0, 0.01)
     }
 }
 
@@ -52,7 +64,7 @@ SLOW_FAST_MA_STRATEGY_SETTINGS = {
     "interval": "1d",
     'param_validation': lambda params: params.get('slow_ma', 0) > params.get('fast_ma', 0),
     "optimization_params": {
-        "slow_ma": (1, 308.0, 5),
+        "slow_ma": (1, 400.0, 1),
         "fast_ma": (1, 200.0, 1),
     },
     "optimized_params": {

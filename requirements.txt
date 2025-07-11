@@ -8,3 +8,4 @@ yfinance==0.2.63
 pyarrow==20.0.0
 fastparquet==2024.11.0
 rich==14.0.0
+optuna==4.4.0
