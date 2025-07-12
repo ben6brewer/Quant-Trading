@@ -2,7 +2,7 @@
 
 import os
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 from coinmetrics.api_client import CoinMetricsClient
 from utils.fetch_btc_historical import fetch_btc_historical_data
 
@@ -10,54 +10,26 @@ def fetch_mvrv_historical_data(filepath="data/mvrv_coinmetrics.parquet", rolling
     btc_df = fetch_btc_historical_data()
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
+    # Ensure proper datetime format (UTC naive)
+    btc_df['date'] = pd.to_datetime(btc_df['date']).dt.tz_localize(None)
+
     if os.path.exists(filepath):
         try:
             cached_df = pd.read_parquet(filepath)
-
-            # Ensure datetime format, remove timezone info
             cached_df['date'] = pd.to_datetime(cached_df['date']).dt.tz_localize(None)
-            btc_df['date'] = pd.to_datetime(btc_df['date']).dt.tz_localize(None)
 
             latest_date = cached_df['date'].max().date()
-            today_date = datetime.utcnow().date()
+            today = datetime.utcnow().date()
 
-            if latest_date >= (today_date - timedelta(days=1)):
+            if latest_date >= today:
                 print(f"Cached MVRV data is up-to-date (latest: {latest_date}). Using cached data.")
-
-                # Merge cached MVRV data with BTC using left join to keep all BTC dates
-                merged_df = pd.merge(btc_df, cached_df, on='date', how='left')
-
-                if 'asset' in merged_df.columns:
-                    merged_df = merged_df.drop(columns=['asset'])
-
-                if 'CapMrktCurUSD' in merged_df.columns:
-                    merged_df = merged_df.rename(columns={
-                        'CapMrktCurUSD': 'market_cap',
-                        'CapRealUSD': 'realized_market_cap'
-                    })
-
-                # Forward fill NaNs in MVRV related columns
-                for col in ['mvrv_ratio', 'mvrv_mean', 'mvrv_std', 'mvrv_z_score']:
-                    if col in merged_df.columns:
-                        merged_df[col] = merged_df[col].ffill()
-
-                # Normalize mvrv_z_score after filling NaNs
-                z_min = merged_df['mvrv_z_score'].min()
-                z_max = merged_df['mvrv_z_score'].max()
-                merged_df['mvrv_risk'] = (merged_df['mvrv_z_score'] - z_min) / (z_max - z_min)
-
-                cols = [
-                    'date', 'open', 'high', 'low', 'close', 'volume',
-                    'market_cap', 'realized_market_cap',
-                    'mvrv_ratio', 'mvrv_mean', 'mvrv_std', 'mvrv_z_score', 'mvrv_risk'
-                ]
-                return merged_df[cols]
+                return cached_df
 
             else:
                 print(f"Cached MVRV data outdated (latest: {latest_date}). Fetching fresh data...")
 
         except Exception as e:
-            print(f"Error loading cached data: {e}. Refetching...")
+            print(f"Error loading cached MVRV data: {e}. Refetching...")
 
     # Fetch fresh MVRV data
     client = CoinMetricsClient()
@@ -68,25 +40,21 @@ def fetch_mvrv_historical_data(filepath="data/mvrv_coinmetrics.parquet", rolling
         metrics=["CapMrktCurUSD", "CapRealUSD"],
         frequency="1d"
     )
-    coinmetrics_df = result.to_dataframe()
+    cm_df = result.to_dataframe()
 
     # Preprocess
-    coinmetrics_df['date'] = pd.to_datetime(coinmetrics_df['time']).dt.tz_localize(None)
-    coinmetrics_df = coinmetrics_df.drop(columns=['time'])
-    coinmetrics_df = coinmetrics_df.sort_values('date').reset_index(drop=True)
+    cm_df['date'] = pd.to_datetime(cm_df['time']).dt.tz_localize(None)
+    cm_df = cm_df.drop(columns=['time'])
+    cm_df = cm_df.sort_values('date').reset_index(drop=True)
 
     # MVRV calculations
-    coinmetrics_df['mvrv_ratio'] = coinmetrics_df['CapMrktCurUSD'] / coinmetrics_df['CapRealUSD']
-    coinmetrics_df['mvrv_mean'] = coinmetrics_df['mvrv_ratio'].rolling(window=rolling_window).mean()
-    coinmetrics_df['mvrv_std'] = coinmetrics_df['mvrv_ratio'].rolling(window=rolling_window).std()
-    coinmetrics_df['mvrv_z_score'] = (
-        (coinmetrics_df['mvrv_ratio'] - coinmetrics_df['mvrv_mean']) / coinmetrics_df['mvrv_std']
-    )
+    cm_df['mvrv_ratio'] = cm_df['CapMrktCurUSD'] / cm_df['CapRealUSD']
+    cm_df['mvrv_mean'] = cm_df['mvrv_ratio'].rolling(window=rolling_window).mean()
+    cm_df['mvrv_std'] = cm_df['mvrv_ratio'].rolling(window=rolling_window).std()
+    cm_df['mvrv_z_score'] = (cm_df['mvrv_ratio'] - cm_df['mvrv_mean']) / cm_df['mvrv_std']
 
-    btc_df['date'] = pd.to_datetime(btc_df['date']).dt.tz_localize(None)
-
-    # Merge fresh data with BTC, left join to keep all BTC dates
-    merged_df = pd.merge(btc_df, coinmetrics_df, on='date', how='left')
+    # Merge with BTC OHLCV data
+    merged_df = pd.merge(btc_df, cm_df, on='date', how='left')
 
     if 'asset' in merged_df.columns:
         merged_df = merged_df.drop(columns=['asset'])
@@ -96,26 +64,19 @@ def fetch_mvrv_historical_data(filepath="data/mvrv_coinmetrics.parquet", rolling
         'CapRealUSD': 'realized_market_cap'
     })
 
-    # Forward fill NaNs for fresh data as well
+    # Forward fill MVRV-related values
     for col in ['mvrv_ratio', 'mvrv_mean', 'mvrv_std', 'mvrv_z_score']:
         if col in merged_df.columns:
             merged_df[col] = merged_df[col].ffill()
 
-    # Risk normalization
+    # Normalize z-score into 0–1 risk score
     z_min = merged_df['mvrv_z_score'].min()
     z_max = merged_df['mvrv_z_score'].max()
     merged_df['mvrv_risk'] = (merged_df['mvrv_z_score'] - z_min) / (z_max - z_min)
     print(f"MVRV Z-Score Range: min = {z_min:.3f}, max = {z_max:.3f}")
 
-    # Final column selection
-    cols = [
-        'date', 'open', 'high', 'low', 'close', 'volume',
-        'market_cap', 'realized_market_cap',
-        'mvrv_ratio', 'mvrv_mean', 'mvrv_std', 'mvrv_z_score', 'mvrv_risk'
-    ]
-    merged_df = merged_df[cols]
-
-    # Save to cache
+    # Save full enriched dataset to cache (includes BTC + MVRV)
     merged_df.to_parquet(filepath)
     print(f"Saved merged MVRV and BTC price data to {filepath}")
+
     return merged_df

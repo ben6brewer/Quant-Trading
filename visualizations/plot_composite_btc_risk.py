@@ -49,7 +49,7 @@ def plot_btc_with_risk_metric(df, risk_col='mean_risk'):
     plt.show()
 
 
-def plot_btc_color_coded_risk(df, risk_col='mean_risk', cmap_name='turbo'):
+def plot_btc_color_coded_risk_metric(df, risk_col='mean_risk', cmap_name='turbo'):
     """
     Plot BTC close price as a color-coded line by chosen risk metric (0-1),
     with a colorbar legend.
