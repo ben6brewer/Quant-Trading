@@ -41,7 +41,7 @@ def fetch_pi_cycle_historical_data(filepath="data/pi_cycle_btc.parquet"):
                 # ✅ Hardcoded choice of risk metric
                 merged_df['pi_cycle_risk'] = merged_df['log_norm']
 
-                pretty_print_df(merged_df.tail(10), title="Pi Cycle BTC Data with Risk Metrics")
+                # pretty_print_df(merged_df.tail(10), title="Pi Cycle BTC Data with Risk Metrics")
 
                 return merged_df[[
                     'date', 'open', 'high', 'low', 'close', 'volume',
@@ -81,7 +81,7 @@ def fetch_pi_cycle_historical_data(filepath="data/pi_cycle_btc.parquet"):
     btc_df['log_norm'] = (log_values - log_min) / (log_max - log_min)
 
     # ✅ Hardcoded choice of risk metric
-    btc_df['pi_cycle_risk'] = btc_df['min_max_norm']  # Using min-max norm as risk metric
+    btc_df['pi_cycle_risk'] = btc_df['sigmoid_norm']  # Using sigmoid norm as risk metric
 
     # Forward fill any missing values
     for col in [

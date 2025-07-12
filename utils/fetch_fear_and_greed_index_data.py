@@ -1,4 +1,4 @@
-# utils.cmc_data_fetch.py
+# utils/cmc_data_fetch.py
 
 from utils.pretty_print_df import *
 from utils.fetch_btc_historical import *
@@ -7,6 +7,7 @@ import yfinance as yf
 import os
 import pandas as pd
 import requests
+import numpy as np
 from datetime import datetime
 
 DATA_DIR = "data"
@@ -50,14 +51,28 @@ def fetch_fear_and_greed_index_data(period="max", interval="1d"):
     merged_df = pd.merge(df, fng_df, on='date', how='left')
     merged_df = merged_df.dropna(subset=['F&G'])
 
-    # Add normalized F&G risk column
-    merged_df['F&G_risk'] = merged_df['F&G'] / 100
+    # Normalize F&G Index
+    fg = merged_df['F&G'].astype(float)
+    r_min, r_max = fg.min(), fg.max()
+    r_mean, r_std = fg.mean(), fg.std()
+    epsilon = 1e-9
+    shifted = fg - r_min + epsilon
+    log_vals = np.log(shifted)
+    lmin, lmax = log_vals.min(), log_vals.max()
+
+    merged_df['min_max_norm'] = (fg - r_min) / (r_max - r_min)
+    merged_df['z_score_norm'] = (fg - r_mean) / r_std
+    merged_df['sigmoid_norm'] = 1 / (1 + np.exp(-merged_df['z_score_norm']))
+    merged_df['log_norm'] = (log_vals - lmin) / (lmax - lmin)
+
+    # Set F&G risk to be log_norm (override or redefine if desired)
+    merged_df['F&G_risk'] = merged_df['sigmoid_norm']  # or 'sigmoid_norm' or 'log_norm'
 
     # Set datetime index
     merged_df.set_index('date', inplace=True)
 
-    # Save
+    # Save to file
     merged_df.to_parquet(combined_filepath)
 
-    # ✅ Reset index to include 'date' as a column before returning
+    # Return with date reset as column
     return merged_df.reset_index()

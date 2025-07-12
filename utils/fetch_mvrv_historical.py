@@ -93,7 +93,7 @@ def fetch_mvrv_historical_data(filepath="data/mvrv_coinmetrics.parquet", rolling
     merged_df['log_norm'] = (log_vals - log_min) / (log_max - log_min)
 
     # Hardcoded choice for risk metric (set to log_norm for now)
-    merged_df['mvrv_risk'] = merged_df['log_norm']
+    merged_df['mvrv_risk'] = merged_df['sigmoid_norm']  # or 'z_score_norm', 'sigmoid_norm', 'log_norm'
 
     # Forward fill any NaNs that may appear
     for col in ['min_max_norm', 'z_score_norm', 'sigmoid_norm', 'log_norm', 'mvrv_risk']:

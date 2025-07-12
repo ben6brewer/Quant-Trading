@@ -11,6 +11,7 @@ from strategies.vix_btc_strategy import *
 from utils.fetch_mvrv_historical import *
 from utils.fetch_data_for_btc_composite_risk_strategy import *
 from utils.fetch_sopr_historical import *
+from utils.fetch_200w_sma_vs_prev_top import *
 from utils.fetch_pi_cycle_historical import *
 from strategies.vix_spy_strategy import *
 from strategies.btc_buy_and_hold_strategy import *
@@ -53,10 +54,10 @@ def main():
     # run_strategy_optuna_optimization(strategy_class=SlowFastMAStrategy,strategy_settings=SLOW_FAST_MA_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=50)
     # run_strategy_optuna_optimization(strategy_class=VixSpyStrategy,strategy_settings=VIX_SPY_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=1000)
     # run_strategy_optuna_optimization(strategy_class=CryptoSentimentStrategy,strategy_settings=CRYPTO_SENTIMENT_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=5000)
-    plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy(), risk_col='mvrv_risk')
-    # plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy(), risk_col='pi_cycle_risk')
+    # plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy(), risk_col='sma_cycle_risk')
+    # plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy(), risk_col='sma_cycle_risk')
     # plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy())
-    # plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy())
+    plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy())
     pass
 
 def compare_strategies(strategy_class_and_settings_list):

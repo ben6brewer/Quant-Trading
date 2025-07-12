@@ -7,7 +7,7 @@ import numpy as np
 from datetime import datetime
 
 def pretty_print_df(df: pd.DataFrame, title: str = None):
-    console = Console()
+    console = Console(height=None)  # Disable row limit / paging
     table = Table(title=title or getattr(df, 'title', 'DataFrame'))
 
     # Add column headers
@@ -21,7 +21,7 @@ def pretty_print_df(df: pd.DataFrame, title: str = None):
             if isinstance(value, (float, np.floating)):
                 formatted_row.append(f"{value:.3f}")
             elif isinstance(value, (pd.Timestamp, datetime)):
-                formatted_row.append(value.strftime('%Y-%m-%d'))  # ✅ format only for display
+                formatted_row.append(value.strftime('%Y-%m-%d'))
             else:
                 formatted_row.append(str(value))
         table.add_row(*formatted_row)
