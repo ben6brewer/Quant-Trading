@@ -2,9 +2,11 @@
 
 import os
 import pandas as pd
+import numpy as np
 from datetime import datetime
 from coinmetrics.api_client import CoinMetricsClient
 from utils.fetch_btc_historical import fetch_btc_historical_data
+from utils.pretty_print_df import pretty_print_df
 
 def fetch_mvrv_historical_data(filepath="data/mvrv_coinmetrics.parquet", rolling_window=365):
     btc_df = fetch_btc_historical_data()
@@ -69,11 +71,33 @@ def fetch_mvrv_historical_data(filepath="data/mvrv_coinmetrics.parquet", rolling
         if col in merged_df.columns:
             merged_df[col] = merged_df[col].ffill()
 
-    # Normalize z-score into 0–1 risk score
-    z_min = merged_df['mvrv_z_score'].min()
-    z_max = merged_df['mvrv_z_score'].max()
-    merged_df['mvrv_risk'] = (merged_df['mvrv_z_score'] - z_min) / (z_max - z_min)
-    print(f"MVRV Z-Score Range: min = {z_min:.3f}, max = {z_max:.3f}")
+    # --- Normalizations ---
+    z = merged_df['mvrv_z_score']
+    z_min, z_max = z.min(), z.max()
+    z_mean, z_std = z.mean(), z.std()
+
+    # Min-Max normalization
+    merged_df['min_max_norm'] = (z - z_min) / (z_max - z_min)
+
+    # Z-score norm (same as mvrv_z_score but renaming for consistency)
+    merged_df['z_score_norm'] = (z - z_mean) / z_std
+
+    # Sigmoid normalization on z-score
+    merged_df['sigmoid_norm'] = 1 / (1 + np.exp(-merged_df['z_score_norm']))
+
+    # Log normalization on shifted z-score (to keep positive values)
+    epsilon = 1e-9
+    shifted_z = z - z_min + epsilon
+    log_vals = np.log(shifted_z)
+    log_min, log_max = log_vals.min(), log_vals.max()
+    merged_df['log_norm'] = (log_vals - log_min) / (log_max - log_min)
+
+    # Hardcoded choice for risk metric (set to log_norm for now)
+    merged_df['mvrv_risk'] = merged_df['log_norm']
+
+    # Forward fill any NaNs that may appear
+    for col in ['min_max_norm', 'z_score_norm', 'sigmoid_norm', 'log_norm', 'mvrv_risk']:
+        merged_df[col] = merged_df[col].ffill()
 
     # Save full enriched dataset to cache (includes BTC + MVRV)
     merged_df.to_parquet(filepath)

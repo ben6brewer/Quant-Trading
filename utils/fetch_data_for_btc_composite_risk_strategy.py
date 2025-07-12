@@ -26,6 +26,6 @@ def fetch_data_for_btc_composite_risk_strategy(period="max", interval="1d"):
     risk_columns = [col for col in merged_df.columns if col.endswith('_risk')]
     merged_df['mean_risk'] = merged_df[risk_columns].mean(axis=1, skipna=True)
 
-    pretty_print_df(merged_df.tail(10), title="BTC Composite Risk Strategy Input Data")
+    # pretty_print_df(merged_df.tail(10), title="BTC Composite Risk Strategy Input Data")
 
     return merged_df

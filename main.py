@@ -53,9 +53,10 @@ def main():
     # run_strategy_optuna_optimization(strategy_class=SlowFastMAStrategy,strategy_settings=SLOW_FAST_MA_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=50)
     # run_strategy_optuna_optimization(strategy_class=VixSpyStrategy,strategy_settings=VIX_SPY_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=1000)
     # run_strategy_optuna_optimization(strategy_class=CryptoSentimentStrategy,strategy_settings=CRYPTO_SENTIMENT_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=5000)
-    pretty_print_df(fetch_pi_cycle_historical_data().tail(3))
-    plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy(), risk_col='pi_cycle_risk')
-    plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy(), risk_col='pi_cycle_risk')
+    plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy(), risk_col='mvrv_risk')
+    # plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy(), risk_col='pi_cycle_risk')
+    # plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy())
+    # plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy())
     pass
 
 def compare_strategies(strategy_class_and_settings_list):
