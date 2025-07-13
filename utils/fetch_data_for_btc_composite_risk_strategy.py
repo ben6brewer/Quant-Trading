@@ -22,7 +22,8 @@ def fetch_data_for_btc_composite_risk_strategy(period="max", interval="1d"):
     # Merge with btc_df as left join to keep all BTC dates
     merged_df = btc_df.merge(mvrv_df, on='date', how='left') \
                     .merge(fng_df, on='date', how='left') \
-                    .merge(pi_cycle_df, on='date', how='left')
+                    .merge(pi_cycle_df, on='date', how='left') \
+                    # .merge(sma_df, on='date', how='left') # 200 week sma vs previous cycle top 
 
 
     # Calculate mean risk from all risk columns, ignoring NaNs
