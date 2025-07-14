@@ -1,18 +1,27 @@
-from utils.fetch_fear_and_greed_index_data import *
 import pandas as pd
 from strategies.base_strategy import BaseStrategy
 import numpy as np
 
 class CryptoSentimentStrategy(BaseStrategy):
     def __init__(self, 
-                 fear_threshold: int = 20, 
-                 greed_threshold: int = 80,
-                 fear_days_required: int = 10,
-                 greed_days_required: int = 10):
-        self.fear_threshold = fear_threshold
-        self.greed_threshold = greed_threshold
-        self.fear_days_required = fear_days_required
-        self.greed_days_required = greed_days_required
+                 fear_threshold: int = None, 
+                 greed_threshold: int = None,
+                 fear_days_required: int = None,
+                 greed_days_required: int = None,
+                 settings: dict = None,
+                 **kwargs):
+        if settings:
+            params = settings.get("optimized_params", {})
+            fear_threshold = params.get("fear_threshold", 20)
+            greed_threshold = params.get("greed_threshold", 80)
+            fear_days_required = params.get("fear_days_required", 10)
+            greed_days_required = params.get("greed_days_required", 10)
+
+        self.fear_threshold = fear_threshold if fear_threshold is not None else 20
+        self.greed_threshold = greed_threshold if greed_threshold is not None else 80
+        self.fear_days_required = fear_days_required if fear_days_required is not None else 10
+        self.greed_days_required = greed_days_required if greed_days_required is not None else 10
+
 
     def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
         data_copy = data.copy()

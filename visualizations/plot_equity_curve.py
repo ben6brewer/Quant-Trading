@@ -4,46 +4,27 @@ import itertools
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-def plot_equity_curve(results_df):
-    """
-    Plots the total equity curve from a backtest results DataFrame.
-
-    Args:
-        results_df (pd.DataFrame): DataFrame with a 'total_equity' column and datetime index.
-    """
+def plot_equity_curve(results_df, ax):
     if 'total_equity' not in results_df.columns:
         raise ValueError("DataFrame must contain a 'total_equity' column.")
 
     ticker = results_df.attrs.get('ticker', 'Unknown')
     title = results_df.attrs.get('title', 'Untitled Strategy')
 
-    plt.figure(figsize=(12, 6))
-    plt.plot(results_df.index, results_df['total_equity'], label='Total Equity', color='blue', linewidth=2)
-    
-    plt.title(f"{ticker} {title} Equity Curve", fontsize=16)
-    plt.xlabel("Date", fontsize=12)
-    plt.ylabel("Total Equity ($)", fontsize=12)
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.legend(loc='upper left')
-
-    # Improve date formatting
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    plt.gcf().autofmt_xdate()
-    plt.show()
+    ax.plot(results_df.index, results_df['total_equity'], label='Total Equity', color='blue', linewidth=2)
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Total Equity ($)")
+    ax.set_title(f"{ticker} {title} Equity Curve")
+    ax.grid(True, linestyle='--', alpha=0.5)
+    ax.legend(loc='upper left')
 
 
-def plot_equity_vs_benchmark(results_df):
-    """
-    Plots the strategy's equity curve against a Buy & Hold equity curve using the 'close' and 'total_equity' columns.
 
-    Args:
-        results_df (pd.DataFrame): DataFrame with 'total_equity' and 'close' columns, indexed by datetime.
-    """
+def plot_equity_vs_benchmark(results_df, ax):
     if 'total_equity' not in results_df.columns or 'close' not in results_df.columns:
         raise ValueError("DataFrame must contain both 'total_equity' and 'close' columns.")
 
     close_prices = results_df['close'].replace(',', '', regex=True).astype(float)
-
     initial_equity = results_df['total_equity'].iloc[0]
     initial_price = close_prices.iloc[0]
     buy_and_hold_equity = close_prices / initial_price * initial_equity
@@ -51,19 +32,13 @@ def plot_equity_vs_benchmark(results_df):
     ticker = results_df.attrs.get('ticker', 'Unknown')
     title = results_df.attrs.get('title', 'Untitled Strategy')
 
-    plt.figure(figsize=(12, 6))
-    plt.plot(results_df.index, results_df['total_equity'], label='Strategy Equity', color='blue', linewidth=2)
-    plt.plot(results_df.index, buy_and_hold_equity, label='Buy & Hold', color='orange', linewidth=2)
-
-    plt.title(f"{ticker} vs {title}", fontsize=16)
-    plt.xlabel("Date", fontsize=12)
-    plt.ylabel("Equity ($)", fontsize=12)
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.legend(loc='upper left')
-
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    plt.gcf().autofmt_xdate()
-    plt.show()
+    ax.plot(results_df.index, results_df['total_equity'], label='Strategy Equity', color='blue', linewidth=2)
+    ax.plot(results_df.index, buy_and_hold_equity, label='Buy & Hold', color='orange', linewidth=2)
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Equity ($)")
+    ax.set_title(f"{ticker} vs {title}")
+    ax.grid(True, linestyle='--', alpha=0.5)
+    ax.legend(loc='upper left')
 
 
 def plot_multiple_equity_curves(results_dfs, normalize=True):

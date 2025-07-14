@@ -4,25 +4,39 @@ import pandas as pd
 pd.set_option('future.no_silent_downcasting', True)
 import numpy as np
 from strategies.base_strategy import BaseStrategy
-from config.universe_config import SLOW_FAST_MA_STRATEGY_SETTINGS
 
 
 class SlowFastMAStrategy(BaseStrategy):
-    def __init__(self, slow_ma: int = SLOW_FAST_MA_STRATEGY_SETTINGS['optimized_params']['slow_ma'], fast_ma: int = SLOW_FAST_MA_STRATEGY_SETTINGS['optimized_params']['fast_ma']):
+    def __init__(self, slow_ma=None, fast_ma=None, settings=None, **kwargs):
         """
-        Initialize the strategy with slow and fast moving average periods.
+        Initialize the strategy.
 
-        Args:
-            slow_ma (int): Period for the slow moving average (e.g. 230).
-            fast_ma (int): Period for the fast moving average (e.g. 100).
-
-        Raises:
-            ValueError: If fast_ma is greater than or equal to slow_ma.
+        Priority:
+        1. Explicit slow_ma / fast_ma arguments
+        2. optimized_params from settings (or from kwargs directly)
+        3. Defaults
         """
+        # Load optimized_params from settings OR from kwargs directly
+        optimized = {}
+
+        if isinstance(settings, dict):
+            optimized = settings.get("optimized_params", {})
+        elif "optimized_params" in kwargs:
+            optimized = kwargs["optimized_params"]
+
+        if slow_ma is None:
+            slow_ma = optimized.get("slow_ma", 230)
+        if fast_ma is None:
+            fast_ma = optimized.get("fast_ma", 100)
+
         self.slow_ma = int(slow_ma)
-        self.fast_ma = int(fast_ma)    
+        self.fast_ma = int(fast_ma)
+
         if self.fast_ma >= self.slow_ma:
-            raise ValueError(f"Invalid parameters: fast_ma ({self.fast_ma}) must be less than slow_ma ({self.slow_ma})")
+            raise ValueError(
+                f"Invalid parameters: fast_ma ({self.fast_ma}) must be less than slow_ma ({self.slow_ma})"
+            )
+
 
 
     def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:

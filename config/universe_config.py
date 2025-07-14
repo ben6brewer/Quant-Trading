@@ -1,5 +1,13 @@
 # config/universe_config.py
 
+from strategies.slow_fast_ma_strategy import SlowFastMAStrategy
+from strategies.fifty_week_ma_strategy import FiftyWeekMAStrategy
+from strategies.crypto_sentiment_strategy import CryptoSentimentStrategy
+from strategies.vix_btc_strategy import VixBtcStrategy
+from strategies.vix_spy_strategy import VixSpyStrategy
+from strategies.btc_buy_and_hold_strategy import BtcBuyAndHoldStrategy
+from strategies.spy_buy_and_hold_strategy import SpyBuyAndHoldStrategy
+
 SP500_TICKERS = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA",
     "JPM", "V", "UNH", "NVDA", "XOM", "JNJ", "PG", "HD", "DIS"
@@ -15,6 +23,7 @@ PE_STRATEGY_SETTINGS = {
 FIFTY_WEEK_MA_STRATEGY_SETTINGS = {
     "title": "50 week MA Strategy",
     "ticker": "BTC-USD",
+    "strategy_class": FiftyWeekMAStrategy,
     "period": "max",
     "interval": "1d",
 }
@@ -22,6 +31,7 @@ FIFTY_WEEK_MA_STRATEGY_SETTINGS = {
 CRYPTO_SENTIMENT_STRATEGY_SETTINGS = {
     "title": "Crypto Sentiment Strategy",
     "ticker": "BTC-USD",
+    "strategy_class": CryptoSentimentStrategy,
     "period": "max",
     "interval": "1d",
     "optimization_params": {
@@ -41,6 +51,7 @@ CRYPTO_SENTIMENT_STRATEGY_SETTINGS = {
 VIX_SPY_STRATEGY_SETTINGS = {
     "title": "VIX Strategy",
     "ticker": "SPY",
+    "strategy_class": VixSpyStrategy,
     "period": "max",
     "interval": "1d",
     "optimization_params": {
@@ -53,6 +64,7 @@ VIX_SPY_STRATEGY_SETTINGS = {
 VIX_BTC_STRATEGY_SETTINGS = {
     "title": "VIX Strategy",
     "ticker": "BTC-USD",
+    "strategy_class": VixBtcStrategy,
     "period": "max",
     "interval": "1d",
 }
@@ -60,6 +72,7 @@ VIX_BTC_STRATEGY_SETTINGS = {
 SLOW_FAST_MA_STRATEGY_SETTINGS = {
     "title": "Slow Fast MA Strategy",
     "ticker": "BTC-USD",
+    "strategy_class": SlowFastMAStrategy,
     "period": "max",
     "interval": "1d",
     'param_validation': lambda params: params.get('slow_ma', 0) > params.get('fast_ma', 0),
@@ -76,6 +89,7 @@ SLOW_FAST_MA_STRATEGY_SETTINGS = {
 BTC_BUY_AND_HOLD_STRATEGY_SETTINGS = {
     "title": "Buy and Hold",
     "ticker": "BTC-USD",
+    "strategy_class": BtcBuyAndHoldStrategy,
     "period": "max",
     "interval": "1d",
 }
@@ -83,6 +97,7 @@ BTC_BUY_AND_HOLD_STRATEGY_SETTINGS = {
 SPY_BUY_AND_HOLD_STRATEGY_SETTINGS = {
     "title": "Buy and Hold",
     "ticker": "SPY",
+    "strategy_class": SpyBuyAndHoldStrategy,
     "period": "max",
     "interval": "1d",
 }

@@ -30,6 +30,7 @@ from optimization.grid_search import *
 import pandas as pd
 import requests
 from datetime import date
+import matplotlib.gridspec as gridspec
 
 strategy_list = [
     (CryptoSentimentStrategy, CRYPTO_SENTIMENT_STRATEGY_SETTINGS),
@@ -44,8 +45,11 @@ strategy_list = [
 def main():
 
     # compare_strategies(strategy_list)
-    # run_slow_fast_ma_strategy()
-    # run_fifty_week_ma_strategy()
+    # analyze_strategy(SLOW_FAST_MA_STRATEGY_SETTINGS)
+    # analyze_strategy(FIFTY_WEEK_MA_STRATEGY_SETTINGS)
+    analyze_strategy(CRYPTO_SENTIMENT_STRATEGY_SETTINGS)
+    # analyze_strategy(VIX_SPY_STRATEGY_SETTINGS)
+    # analyze_strategy(VIX_BTC_STRATEGY_SETTINGS)
     # run_crypto_sentiment_strategy()
     # run_vix_spy_strategy()
     # run_vix_btc_strategy()
@@ -54,9 +58,7 @@ def main():
     # run_strategy_optuna_optimization(strategy_class=SlowFastMAStrategy,strategy_settings=SLOW_FAST_MA_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=50)
     # run_strategy_optuna_optimization(strategy_class=VixSpyStrategy,strategy_settings=VIX_SPY_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=1000)
     # run_strategy_optuna_optimization(strategy_class=CryptoSentimentStrategy,strategy_settings=CRYPTO_SENTIMENT_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=5000)
-    # plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy(), risk_col='sma_cycle_risk')
-    # plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy(), risk_col='sma_cycle_risk')
-    plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy())
+    # plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy())
     # plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy())
     pass
 
@@ -123,67 +125,121 @@ def compare_strategies(strategy_class_and_settings_list):
     # Step 5: Plot equity curves
     plot_multiple_equity_curves(results)
 
-
-
-def run_fifty_week_ma_strategy():
-    df = fetch_data_for_strategy(FIFTY_WEEK_MA_STRATEGY_SETTINGS)
-    strategy = FiftyWeekMAStrategy()
-    backtester = BacktestEngine()
-    signal_df = strategy.generate_signals(df)
-    plot_signals(signal_df)
-    results_df = backtester.run_backtest(signal_df)
-    # Optional: add these plots back if needed
-    # plot_equity_curve(results_df)
-    # plot_equity_vs_benchmark(results_df)
-    pretty_print_df(pd.DataFrame([extract_performance_metrics_dict(results_df)]))
-
-def run_crypto_sentiment_strategy():
-    df = fetch_data_for_strategy(CRYPTO_SENTIMENT_STRATEGY_SETTINGS)
-    strategy = CryptoSentimentStrategy()
+def analyze_strategy(strategy_settings):
+    df = fetch_data_for_strategy(strategy_settings)
+    strategy = strategy_settings["strategy_class"](
+        **{k: v for k, v in strategy_settings.items() if k not in ['strategy_class', 'title', 'ticker']}
+    )
     backtester = BacktestEngine()
     signal_df = strategy.generate_signals(df)
     results_df = backtester.run_backtest(signal_df)
-    plot_signals(signal_df)
-    plot_equity_curve(results_df)
-    plot_equity_vs_benchmark(results_df)
+
+    has_fng = 'F&G' in signal_df.columns
+    has_vix = 'vix' in signal_df.columns
+
+    plot_funcs = [
+        ("Signals", lambda fig: plot_signal_tab(fig, signal_df, has_fng, has_vix)),
+        ("Equity Curve", lambda fig: plot_equity_tab(fig, results_df, curve_type="equity")),
+        ("Equity vs Benchmark", lambda fig: plot_equity_tab(fig, results_df, curve_type="vs_benchmark")),
+    ]
+
+    idx = [0]
+
+    # Create the figure once with constrained_layout enabled
+    fig = plt.figure(figsize=(10, 6))
+    fig.patch.set_facecolor('white')
+
+    def draw():
+        fig.clear()
+        _, plot_func = plot_funcs[idx[0]]
+        plot_func(fig)
+        fig.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.1)
+        fig.canvas.draw_idle()
+
+
+    def on_key(event):
+        if event.key == 'right':
+            idx[0] = (idx[0] + 1) % len(plot_funcs)
+            draw()
+        elif event.key == 'left':
+            idx[0] = (idx[0] - 1) % len(plot_funcs)
+            draw()
+
+    fig.canvas.mpl_connect('key_press_event', on_key)
+    draw()
+    plt.show()
+
     pretty_print_df(pd.DataFrame([extract_performance_metrics_dict(results_df)]))
 
 
-def run_vix_spy_strategy():
-    df = fetch_data_for_strategy(VIX_SPY_STRATEGY_SETTINGS)
-    strategy = VixSpyStrategy(vix_threshold=36, take_profit_pct=.61, partial_exit_pct=.21)
-    backtester = BacktestEngine()
-    signal_df = strategy.generate_signals(df)
-    results_df = backtester.run_backtest(signal_df)
-    results_df['date'] = pd.to_datetime(results_df['date'])
-    plot_signals(signal_df)
-    plot_equity_curve(results_df)
-    plot_equity_vs_benchmark(results_df)
-    pretty_print_df(pd.DataFrame([extract_performance_metrics_dict(results_df)]))
+def plot_signal_tab(fig, signal_df, has_fng, has_vix):
+    if has_vix or has_fng:
+        gs = gridspec.GridSpec(
+            2, 2,
+            height_ratios=[3, 1] if has_vix else [1, 0],
+            width_ratios=[20, 1] if has_fng else [1, 0],
+            hspace=0.1, wspace=0.05,
+            figure=fig
+        )
+        ax_price = fig.add_subplot(gs[0, 0])
+        ax_vix = fig.add_subplot(gs[1, 0], sharex=ax_price) if has_vix else None
+        cbar_ax = fig.add_subplot(gs[:, 1]) if has_fng else None
+    else:
+        gs = gridspec.GridSpec(1, 1, figure=fig)
+        ax_price = fig.add_subplot(gs[0])
+        ax_vix = None
+        cbar_ax = None
+
+    plot_signals(signal_df, ax_price=ax_price, cbar_ax=cbar_ax, ax_secondary=ax_vix)
 
 
-def run_vix_btc_strategy():
-    df = fetch_data_for_strategy(VIX_BTC_STRATEGY_SETTINGS)
-    strategy = VixBtcStrategy()
-    backtester = BacktestEngine()
-    signal_df = strategy.generate_signals(df)
-    results_df = backtester.run_backtest(signal_df)
-    plot_signals(signal_df)
-    plot_equity_curve(results_df)
-    plot_equity_vs_benchmark(results_df)
-    pretty_print_df(pd.DataFrame([extract_performance_metrics_dict(results_df)]))
+def plot_equity_tab(fig, results_df, curve_type="equity"):
+    gs = gridspec.GridSpec(
+        1, 1,
+        hspace=0.1, wspace=0.05,
+        figure=fig
+    )
+    ax = fig.add_subplot(gs[0])
+
+    if curve_type == "equity":
+        plot_equity_curve(results_df, ax)
+    elif curve_type == "vs_benchmark":
+        plot_equity_vs_benchmark(results_df, ax)
 
 
-def run_slow_fast_ma_strategy():
-    df = fetch_data_for_strategy(SLOW_FAST_MA_STRATEGY_SETTINGS)
-    strategy = SlowFastMAStrategy()
-    backtester = BacktestEngine()
-    signal_df = strategy.generate_signals(df)
-    results_df = backtester.run_backtest(signal_df)
-    plot_signals(signal_df)
-    plot_equity_curve(results_df)
-    plot_equity_vs_benchmark(results_df)
-    pretty_print_df(pd.DataFrame([extract_performance_metrics_dict(results_df)]))
+def plot_signal_tab(fig, signal_df, has_fng, has_vix):
+    if has_vix or has_fng:
+        gs = gridspec.GridSpec(
+            2, 2,
+            height_ratios=[3, 1] if has_vix else [1, 0],
+            width_ratios=[20, 1] if has_fng else [1, 0],
+            hspace=0.1, wspace=0.05,
+            figure=fig
+        )
+        ax_price = fig.add_subplot(gs[0, 0])
+        ax_vix = fig.add_subplot(gs[1, 0], sharex=ax_price) if has_vix else None
+        cbar_ax = fig.add_subplot(gs[:, 1]) if has_fng else None
+    else:
+        gs = gridspec.GridSpec(1, 1, figure=fig)
+        ax_price = fig.add_subplot(gs[0])
+        ax_vix = None
+        cbar_ax = None
+
+    plot_signals(signal_df, ax_price=ax_price, cbar_ax=cbar_ax, ax_secondary=ax_vix)
+
+
+def plot_equity_tab(fig, results_df, curve_type="equity"):
+    gs = gridspec.GridSpec(
+        1, 1,
+        hspace=0.1, wspace=0.05,
+        figure=fig
+    )
+    ax = fig.add_subplot(gs[0])
+
+    if curve_type == "equity":
+        plot_equity_curve(results_df, ax)
+    elif curve_type == "vs_benchmark":
+        plot_equity_vs_benchmark(results_df, ax)
 
 if __name__ == "__main__":
     main()
