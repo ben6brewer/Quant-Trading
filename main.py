@@ -19,7 +19,7 @@ def main():
     # analyze_strategy(SLOW_FAST_MA_STRATEGY_SETTINGS)
     # analyze_strategy(FIFTY_WEEK_MA_STRATEGY_SETTINGS)
     # analyze_strategy(CRYPTO_SENTIMENT_STRATEGY_SETTINGS)
-    # analyze_strategy(VIX_SPY_STRATEGY_SETTINGS)
+    analyze_strategy(VIX_SPY_STRATEGY_SETTINGS)
     # analyze_strategy(VIX_BTC_STRATEGY_SETTINGS)
     # analyze_strategy(BTC_BUY_AND_HOLD_STRATEGY_SETTINGS)
     # analyze_strategy(SPY_BUY_AND_HOLD_STRATEGY_SETTINGS)

@@ -4,8 +4,6 @@ import pandas as pd
 from strategies.base_strategy import BaseStrategy
 
 class SpyBuyAndHoldStrategy(BaseStrategy):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
     def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
         df = data.copy()
         df.attrs['title'] = data.attrs.get('title', 'SPY Buy and Hold Strategy')

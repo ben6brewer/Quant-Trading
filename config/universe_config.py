@@ -1,12 +1,12 @@
 # config/universe_config.py
 
-from strategies.slow_fast_ma_strategy import SlowFastMAStrategy
-from strategies.fifty_week_ma_strategy import FiftyWeekMAStrategy
-from strategies.crypto_sentiment_strategy import CryptoSentimentStrategy
-from strategies.vix_btc_strategy import VixBtcStrategy
-from strategies.vix_spy_strategy import VixSpyStrategy
-from strategies.btc_buy_and_hold_strategy import BtcBuyAndHoldStrategy
-from strategies.spy_buy_and_hold_strategy import SpyBuyAndHoldStrategy
+from strategies.moving_averages.slow_fast_ma_strategy import SlowFastMAStrategy
+from strategies.moving_averages.fifty_week_ma_strategy import FiftyWeekMAStrategy
+from strategies.sentiment.crypto_sentiment_strategy import CryptoSentimentStrategy
+from strategies.vix.vix_btc_strategy import VixBtcStrategy
+from strategies.vix.vix_spy_strategy import VixSpyStrategy
+from strategies.buy_and_hold.btc_buy_and_hold_strategy import BtcBuyAndHoldStrategy
+from strategies.buy_and_hold.spy_buy_and_hold_strategy import SpyBuyAndHoldStrategy
 
 SP500_TICKERS = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA",
@@ -104,8 +104,8 @@ SPY_BUY_AND_HOLD_STRATEGY_SETTINGS = {
 
 BACKTEST_CONFIG = {
     "initial_cash": 100000,
-    "commission_pct_per_trade": 0.002,  # 0.2%
-    "slippage_pct": 0.001,               # 0.1%
+    "commission_pct_per_trade": 0.002,
+    "slippage_pct": 0.001,
 }
 
 STRATEGY_SETTINGS_LIST = [
