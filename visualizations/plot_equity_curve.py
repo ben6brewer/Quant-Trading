@@ -3,6 +3,7 @@
 import itertools
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.gridspec as gridspec  
 
 def plot_equity_curve(results_df, ax):
     if 'total_equity' not in results_df.columns:
@@ -164,3 +165,16 @@ def plot_grid_search_equity_curves(results_dfs, best_params, benchmark_df=None):
     plt.gcf().autofmt_xdate()
     plt.tight_layout()
     plt.show()
+
+def plot_equity_tab(fig, results_df, curve_type="equity"):
+    gs = gridspec.GridSpec(
+        1, 1,
+        hspace=0.1, wspace=0.05,
+        figure=fig
+    )
+    ax = fig.add_subplot(gs[0])
+
+    if curve_type == "equity":
+        plot_equity_curve(results_df, ax)
+    elif curve_type == "vs_benchmark":
+        plot_equity_vs_benchmark(results_df, ax)

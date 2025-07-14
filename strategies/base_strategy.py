@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 import pandas as pd
 
 class BaseStrategy(ABC):
+    def __init__(self, **kwargs):
+        pass
     @abstractmethod
     def generate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
         """

@@ -1,15 +1,4 @@
 # utils/plot_signals.py
-
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import pandas as pd
-import numpy as np
-from matplotlib.collections import LineCollection
-from matplotlib.colors import Normalize
-import matplotlib.cm as cm
-
-from matplotlib import colors as mcolors
-
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import pandas as pd
@@ -18,10 +7,12 @@ from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
 import matplotlib.cm as cm
 from matplotlib import colors as mcolors
+import matplotlib.gridspec as gridspec  
 
 def plot_fng(ax, df):
     """
     Plots the closing price with a color gradient based on the Fear & Greed index.
+    Returns the LineCollection for use in colorbar.
     """
     x = mdates.date2num(df.index.to_numpy())
     y = df['close'].to_numpy()
@@ -37,9 +28,9 @@ def plot_fng(ax, df):
     lc.set_array(fng)
     lc.set_linewidth(2)
     lc.set_zorder(1)
-    line = ax.add_collection(lc)
+    ax.add_collection(lc)
 
-    return line
+    return lc  # ✅ Return this for the colorbar
 
 
 def plot_signals(df, ax_price, cbar_ax=None, ax_secondary=None):
@@ -48,10 +39,10 @@ def plot_signals(df, ax_price, cbar_ax=None, ax_secondary=None):
 
     # Plot close price differently if 'F&G' column exists
     if 'F&G' in df.columns:
-        print("Plotting Fear & Greed index with color-coded close price")
-        # Color-coded line based on Fear & Greed index using plot_fng helper
-        plot_fng(ax_price, df)
-        # Skip plotting black close price and risk scatter for clarity
+        lc = plot_fng(ax_price, df)  # ✅ Capture LineCollection
+        if cbar_ax is not None:
+            cbar = plt.colorbar(lc, cax=cbar_ax)  # ✅ Link to LineCollection
+            cbar.set_label('Fear & Greed Index')  # Optional label
     else:
         # Plot black close price line
         ax_price.plot(df.index, df['close'], label='Close Price', color='black', linewidth=1.5)
@@ -76,8 +67,8 @@ def plot_signals(df, ax_price, cbar_ax=None, ax_secondary=None):
         entries = df[df['signal'].diff() > 0]
         exits = df[df['signal'].diff() < 0]
 
-        ax_price.scatter(entries.index, entries['close'], color='green', label='Buy Signal', marker='^', zorder=5)
-        ax_price.scatter(exits.index, exits['close'], color='red', label='Sell Signal', marker='v', zorder=5)
+        ax_price.scatter(entries.index, entries['close'], color='green', label='Buy Signal', marker='^', s=75, zorder=5)
+        ax_price.scatter(exits.index, exits['close'], color='red', label='Sell Signal', marker='v', s=75 ,zorder=5)
 
     # Plot secondary axis (VIX, F&G, etc.)
     if ax_secondary:
@@ -104,3 +95,24 @@ def plot_signals(df, ax_price, cbar_ax=None, ax_secondary=None):
         handles2, labels2 = ax_secondary.get_legend_handles_labels()
         unique2 = dict(zip(labels2, handles2))
         ax_secondary.legend(unique2.values(), unique2.keys(), loc='upper right')
+
+def plot_signal_tab(fig, signal_df, has_fng, has_vix):
+    if has_vix or has_fng:
+        gs = gridspec.GridSpec(
+            2, 2,
+            height_ratios=[3, 1] if has_vix else [1, 0],
+            width_ratios=[20, 1] if has_fng else [1, 0],
+            hspace=0.1, wspace=0.05,
+            figure=fig
+        )
+        ax_price = fig.add_subplot(gs[0, 0])
+        ax_vix = fig.add_subplot(gs[1, 0], sharex=ax_price) if has_vix else None
+        cbar_ax = fig.add_subplot(gs[:, 1]) if has_fng else None
+    else:
+        gs = gridspec.GridSpec(1, 1, figure=fig)
+        ax_price = fig.add_subplot(gs[0])
+        ax_vix = None
+        cbar_ax = None
+
+    plot_signals(signal_df, ax_price=ax_price, cbar_ax=cbar_ax, ax_secondary=ax_vix)
+
