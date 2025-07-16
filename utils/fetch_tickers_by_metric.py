@@ -6,6 +6,24 @@ from datetime import datetime
 SP500_DAILY_LIST_PATH = "data/sp500_daily_lists.parquet"
 SP500_DATA_DIR = "data/sp500"
 
+# Aliases for easier metric lookup based on TTM metrics available in FMP
+METRIC_ALIASES = {
+    "pe": "peRatioTTM",
+    "roe": "roeTTM",
+    "roa": "roaTTM",
+    "eps": "epsTTM",
+    "revenue": "revenuePerShareTTM",
+    "netincome": "netIncomeTTM",
+    "debttoequity": "debtEquityRatioTTM",
+    "grossmargin": "grossProfitMarginTTM",
+    "ebitdamargin": "ebitdaratioTTM",
+    "operatingmargin": "operatingProfitMarginTTM",
+    "fcf": "freeCashFlowTTM",
+    "currentratio": "currentRatioTTM",
+    "quickratio": "quickRatioTTM",
+    "interestcoverage": "interestCoverageTTM"
+}
+
 def fetch_top_tickers_by_metric(num_tickers_to_fetch, metric, time_period):
     return _fetch_extreme_tickers_by_metric(num_tickers_to_fetch, metric, time_period, top=True)
 
@@ -16,6 +34,9 @@ def _fetch_extreme_tickers_by_metric(num, metric, period, top=True):
     df_daily = pd.read_parquet(SP500_DAILY_LIST_PATH)
     df_daily['date'] = pd.to_datetime(df_daily['date'])
     df_daily.set_index('date', inplace=True)
+
+    # Normalize metric alias
+    metric_key = METRIC_ALIASES.get(metric.lower(), metric)
 
     grouped = df_daily.groupby(pd.Grouper(freq=_get_pandas_freq(period)))
     result_rows = []
@@ -42,12 +63,12 @@ def _fetch_extreme_tickers_by_metric(num, metric, period, top=True):
                     continue
 
                 latest_row = df_ticker.sort_values('date').iloc[-1]
-                val = latest_row.get(metric, None)
+                val = latest_row.get(metric_key, None)
                 if pd.notna(val):
                     period_metric_data.append({
                         'period_start': period_start,
                         'ticker': ticker,
-                        metric: val
+                        metric_key: val
                     })
             except Exception as e:
                 print(f"⚠️ Skipping {ticker} due to error: {e}")
@@ -55,12 +76,12 @@ def _fetch_extreme_tickers_by_metric(num, metric, period, top=True):
 
         if period_metric_data:
             df_metric = pd.DataFrame(period_metric_data)
-            df_metric.sort_values(metric, ascending=not top, inplace=True)
+            df_metric.sort_values(metric_key, ascending=not top, inplace=True)
             top_rows = df_metric.head(num)
 
             # 🖨️ Print top or bottom N tickers for this period
             print(f"{'Top' if top else 'Bottom'} {num} tickers for '{metric}' in {period_start.date()}:")
-            print(top_rows[['ticker', metric]].to_string(index=False))
+            print(top_rows[['ticker', metric_key]].to_string(index=False))
 
             result_rows.extend(top_rows.to_dict('records'))
 
@@ -71,8 +92,8 @@ def _get_pandas_freq(period):
         "day": "D",
         "week": "W",
         "month": "M",
-        "quarter": "QS",  # Use quarter start
-        "year": "YS"      # Use year start
+        "quarter": "QS",
+        "year": "YS"
     }.get(period.lower(), "QS")
 
 def _get_next_period_start(period_start, period):
