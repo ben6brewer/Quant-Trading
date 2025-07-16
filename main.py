@@ -13,8 +13,9 @@ from optimization.grid_search import *
 import pandas as pd
 from datetime import date
 
-
+from utils.fetch_sp500_historical_tickers import *
 from utils.fetch_equity_metric_data import *
+from utils.fetch_tickers_by_metric import *
 
 def main():
 
@@ -28,9 +29,15 @@ def main():
     # analyze_strategy(SPY_BUY_AND_HOLD_STRATEGY_SETTINGS)
     # plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy())
     # plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy())
-    equity_ticker_list = ["AAPL", "MSFT", "GOOG", "TSLA", "NVDA"]
-    metric = "trailingPE"
-    pretty_print_df(fetch_equity_metric_data_list(equity_ticker_list, metric).head(10))
+
+    # equity_ticker_list = ["AAPL", "MSFT", "GOOG", "TSLA", "NVDA"]
+    # metric = "trailingPE"
+    # pretty_print_df(fetch_equity_metric_data_list(equity_ticker_list, metric).head(10))
+
+    # fetch_sp500_historical_tickers()
+    # update_all_sp500_tickers()
+    pretty_print_df(fetch_top_tickers_by_metric(10, "trailingPE", "quarter").tail())
+
     # run_strategy_grid_search(strategy_class=VixSpyStrategy, strategy_settings=VIX_SPY_STRATEGY_SETTINGS, performance_metric='sharpe')
     # run_strategy_grid_search(strategy_class=SlowFastMAStrategy, strategy_settings=SLOW_FAST_MA_STRATEGY_SETTINGS, performance_metric='sharpe')
     # run_strategy_optuna_optimization(strategy_class=SlowFastMAStrategy,strategy_settings=SLOW_FAST_MA_STRATEGY_SETTINGS,performance_metric='sharpe',n_trials=50)
