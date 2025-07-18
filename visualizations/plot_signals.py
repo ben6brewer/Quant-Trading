@@ -8,6 +8,7 @@ from matplotlib.colors import Normalize
 import matplotlib.cm as cm
 from matplotlib import colors as mcolors
 import matplotlib.gridspec as gridspec  
+from utils.pretty_print_df import *
 
 def plot_fng(ax, df):
     """
@@ -32,17 +33,27 @@ def plot_fng(ax, df):
 
     return lc  # ✅ Return this for the colorbar
 
+def plot_bollinger_bands(ax, df):
+    """
+    Plot Bollinger Bands: upper, lower, and SMA along with the close price.
+    """
+    ax.plot(df.index, df['close'], label='Close Price', color='black', linewidth=1.5)
+    ax.plot(df.index, df['upper_band'], label='Upper Band', color='purple', linestyle='--', linewidth=1)
+    ax.plot(df.index, df['lower_band'], label='Lower Band', color='blue', linestyle='--', linewidth=1)
 
 def plot_signals(df, ax_price, cbar_ax=None, ax_secondary=None):
     df = df.copy()
     df = df.sort_index()
-
     # Plot close price differently if 'F&G' column exists
     if 'F&G' in df.columns:
         lc = plot_fng(ax_price, df)  # ✅ Capture LineCollection
         if cbar_ax is not None:
             cbar = plt.colorbar(lc, cax=cbar_ax)  # ✅ Link to LineCollection
             cbar.set_label('Fear & Greed Index')  # Optional label
+    elif 'upper_band' in df.columns and 'lower_band' in df.columns and 'sma' in df.columns:
+        plot_bollinger_bands(ax_price, df)
+
+
     else:
         # Plot black close price line
         ax_price.plot(df.index, df['close'], label='Close Price', color='black', linewidth=1.5)

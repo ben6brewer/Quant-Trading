@@ -20,14 +20,15 @@ def main():
 
     # compare_strategies(STRATEGY_SETTINGS_LIST)
     # analyze_strategy(SLOW_FAST_MA_STRATEGY_SETTINGS)
+    analyze_strategy(BOLLINGER_BANDS_STRATEGY_SETTINGS)
     # analyze_strategy(FIFTY_WEEK_MA_STRATEGY_SETTINGS)
     # analyze_strategy(CRYPTO_SENTIMENT_STRATEGY_SETTINGS)
     # analyze_strategy(VIX_SPY_STRATEGY_SETTINGS)
     # analyze_strategy(VIX_BTC_STRATEGY_SETTINGS)
     # analyze_strategy(BTC_BUY_AND_HOLD_STRATEGY_SETTINGS)
     # analyze_strategy(SPY_BUY_AND_HOLD_STRATEGY_SETTINGS)
-    plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy())
-    plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy())
+    # plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy())
+    # plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy())
 
     # equity_ticker_list = ["AAPL", "MSFT", "GOOG", "TSLA", "NVDA"]
     # metric = "trailingPE"

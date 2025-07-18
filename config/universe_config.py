@@ -7,7 +7,7 @@ from strategies.vix.vix_btc_strategy import VixBtcStrategy
 from strategies.vix.vix_spy_strategy import VixSpyStrategy
 from strategies.buy_and_hold.btc_buy_and_hold_strategy import BtcBuyAndHoldStrategy
 from strategies.buy_and_hold.spy_buy_and_hold_strategy import SpyBuyAndHoldStrategy
-
+from strategies.moving_averages.bollinger_bands_strategy import BollingerBandsStrategy
 SP500_TICKERS = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA",
     "JPM", "V", "UNH", "NVDA", "XOM", "JNJ", "PG", "HD", "DIS"
@@ -24,6 +24,9 @@ FIFTY_WEEK_MA_STRATEGY_SETTINGS = {
     "title": "50 week MA Strategy",
     "ticker": "BTC-USD",
     "strategy_class": FiftyWeekMAStrategy,
+    "optimized_params": {
+        "window_weeks": 50
+    },
     "period": "max",
     "interval": "1d",
 }
@@ -98,6 +101,14 @@ SPY_BUY_AND_HOLD_STRATEGY_SETTINGS = {
     "title": "Buy and Hold",
     "ticker": "SPY",
     "strategy_class": SpyBuyAndHoldStrategy,
+    "period": "max",
+    "interval": "1d",
+}
+
+BOLLINGER_BANDS_STRATEGY_SETTINGS = {
+    "title": "Bollinger Bands Strategy",
+    "ticker": "BTC-USD",
+    "strategy_class": BollingerBandsStrategy,
     "period": "max",
     "interval": "1d",
 }
