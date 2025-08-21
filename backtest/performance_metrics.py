@@ -3,11 +3,18 @@
 import numpy as np
 import pandas as pd
 import yfinance as yf
+from config.universe_config import BACKTEST_CONFIG
 
 CRYPTO_TRADING_DAYS_PER_YEAR = 365
-
+EQUITY_TRADING_DAYS_PER_YEAR = 252
+TRADING_DAYS_PER_YEAR = EQUITY_TRADING_DAYS_PER_YEAR  # Default to equity unless specified
 def calculate_daily_returns(df: pd.DataFrame) -> pd.Series:
-    return df['total_equity'].pct_change().fillna(0)
+    """
+    Compute daily returns for a price or equity curve series.
+    Assumes df has a column 'total_equity'.
+    """
+    returns = df['total_equity'].pct_change().dropna()
+    return returns
 
 def calculate_cumulative_returns(df: pd.DataFrame) -> float:
     returns = calculate_daily_returns(df)
@@ -36,7 +43,7 @@ def calculate_cagr(df: pd.DataFrame) -> float:
     if days == 0 or start_value <= 0 or end_value <= 0:
         return 0
 
-    years = days / CRYPTO_TRADING_DAYS_PER_YEAR
+    years = days / TRADING_DAYS_PER_YEAR
     total_return = (end_value / start_value) - 1
 
     if total_return >= 0:
@@ -48,19 +55,19 @@ def calculate_cagr(df: pd.DataFrame) -> float:
 
 def calculate_sharpe_ratio(df: pd.DataFrame, risk_free_rate: float = 0.02) -> float:
     returns = calculate_daily_returns(df)
-    excess_returns = returns - (risk_free_rate / CRYPTO_TRADING_DAYS_PER_YEAR)
+    excess_returns = returns - (risk_free_rate / TRADING_DAYS_PER_YEAR)
     std_dev = returns.std()
     if std_dev == 0:
         return 0
-    return (excess_returns.mean() / std_dev) * np.sqrt(CRYPTO_TRADING_DAYS_PER_YEAR)
+    return (excess_returns.mean() / std_dev) * np.sqrt(TRADING_DAYS_PER_YEAR)
 
 def calculate_sortino_ratio(df: pd.DataFrame, risk_free_rate: float = 0.02) -> float:
     returns = calculate_daily_returns(df)
     downside_returns = returns[returns < 0]
     if downside_returns.std() == 0:
         return 0
-    excess_return = returns.mean() - (risk_free_rate / CRYPTO_TRADING_DAYS_PER_YEAR)
-    return (excess_return / downside_returns.std()) * np.sqrt(CRYPTO_TRADING_DAYS_PER_YEAR)
+    excess_return = returns.mean() - (risk_free_rate / TRADING_DAYS_PER_YEAR)
+    return (excess_return / downside_returns.std()) * np.sqrt(TRADING_DAYS_PER_YEAR)
 
 def calculate_max_drawdown(df: pd.DataFrame) -> float:
     equity_curve = df['total_equity'].cummax()
@@ -68,8 +75,17 @@ def calculate_max_drawdown(df: pd.DataFrame) -> float:
     return drawdown.min()
 
 def calculate_volatility(df: pd.DataFrame) -> float:
+    """
+    Calculate annualized volatility of a buy-and-hold equity curve.
+    Excludes weekends and annualizes with 252 trading days.
+    """
     returns = calculate_daily_returns(df)
-    return returns.std() * np.sqrt(CRYPTO_TRADING_DAYS_PER_YEAR)
+
+    # Keep only weekdays (Mon–Fri)
+    returns = returns[returns.index.dayofweek < 5]
+
+    # Annualized volatility
+    return returns.std() * np.sqrt(TRADING_DAYS_PER_YEAR)
 
 def extract_trades(df: pd.DataFrame) -> list:
     trades = []

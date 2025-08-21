@@ -7,6 +7,12 @@ from strategies.vix.vix_btc_strategy import VixBtcStrategy
 from strategies.vix.vix_spy_strategy import VixSpyStrategy
 from strategies.buy_and_hold.btc_buy_and_hold_strategy import BtcBuyAndHoldStrategy
 from strategies.buy_and_hold.spy_buy_and_hold_strategy import SpyBuyAndHoldStrategy
+from strategies.buy_and_hold.tsn_buy_and_hold_strategy import TsnBuyAndHoldStrategy
+from strategies.buy_and_hold.xlp_buy_and_hold_strategy import XlpBuyAndHoldStrategy
+from strategies.buy_and_hold.cag_buy_and_hold_strategy import CagBuyAndHoldStrategy
+from strategies.buy_and_hold.hrl_buy_and_hold_strategy import HrlBuyAndHoldStrategy
+from strategies.buy_and_hold.cpb_buy_and_hold_strategy import CpbBuyAndHoldStrategy
+from strategies.buy_and_hold.jbs_buy_and_hold_strategy import GisBuyAndHoldStrategy
 
 SP500_TICKERS = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA",
@@ -94,13 +100,68 @@ BTC_BUY_AND_HOLD_STRATEGY_SETTINGS = {
     "interval": "1d",
 }
 
+CAG_BUY_AND_HOLD_STRATEGY_SETTINGS = {
+    "title": "Buy and Hold",
+    "ticker": "CAG",
+    "strategy_class": CagBuyAndHoldStrategy,
+    "period": "max",  # <-- use start instead of period
+    "interval": "1d",
+    "type": "equity",
+}
+
+HRL_BUY_AND_HOLD_STRATEGY_SETTINGS = {
+    "title": "Buy and Hold",
+    "ticker": "HRL",
+    "strategy_class": HrlBuyAndHoldStrategy,
+    "period": "max",  # <-- use start instead of period
+    "interval": "1d",
+    "type": "equity",
+}
+
+CPB_BUY_AND_HOLD_STRATEGY_SETTINGS = {
+    "title": "Buy and Hold",
+    "ticker": "CPB",
+    "strategy_class": CpbBuyAndHoldStrategy,
+    "period": "max",  # <-- use start instead of period
+    "interval": "1d",
+    "type": "equity",
+}
+
+GIS_BUY_AND_HOLD_STRATEGY_SETTINGS = {
+    "title": "Buy and Hold",
+    "ticker": "GIS",
+    "strategy_class": GisBuyAndHoldStrategy,
+    "period": "max",  # <-- use start instead of period
+    "interval": "1d",
+    "type": "equity",
+}
+
 SPY_BUY_AND_HOLD_STRATEGY_SETTINGS = {
     "title": "Buy and Hold",
     "ticker": "SPY",
     "strategy_class": SpyBuyAndHoldStrategy,
-    "period": "max",
+    "period": "max",  # <-- use start instead of period
     "interval": "1d",
 }
+
+TSN_BUY_AND_HOLD_STRATEGY_SETTINGS = {
+    "title": "Buy and Hold",
+    "ticker": "TSN",
+    "strategy_class": TsnBuyAndHoldStrategy,
+    "period": "max",  # <-- use start instead of period
+    "interval": "1d",
+    "type": "equity",
+}
+
+XLP_BUY_AND_HOLD_STRATEGY_SETTINGS = {
+    "title": "Buy and Hold",
+    "ticker": "XLP",
+    "strategy_class": XlpBuyAndHoldStrategy,
+    "period": "max",  # <-- use start instead of period
+    "interval": "1d",
+    "type": "equity",
+}
+
 
 BACKTEST_CONFIG = {
     "initial_cash": 100000,

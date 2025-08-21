@@ -12,7 +12,7 @@ from utils.fetch_spy_historical import *
 from utils.fetch_vix_historical import *
 
 DATA_DIR = "data"
-REQUIRED_PARAMS = ["ticker", "period", "interval"]
+REQUIRED_PARAMS = ["ticker", "interval"]
 
 def fetch_data_for_strategy(strategy_settings):
     """
@@ -29,13 +29,17 @@ def fetch_data_for_strategy(strategy_settings):
         raise FileNotFoundError(f"Data directory '{DATA_DIR}' does not exist. Please create it before running.")
 
     ticker = strategy_settings["ticker"]
-    period = strategy_settings["period"]
     interval = strategy_settings["interval"]
     strategy_title = strategy_settings.get("title", "Untitled Strategy")
 
+    # Optional params
+    period = strategy_settings.get("period")
+    start = strategy_settings.get("start")
+    end = strategy_settings.get("end")  # ✅ new optional param
+
     # Custom behavior: Crypto Sentiment Strategy
     if strategy_title == "Crypto Sentiment Strategy":
-        df = fetch_fear_and_greed_index_data(period=period, interval=interval)
+        df = fetch_fear_and_greed_index_data(period=period or "max", interval=interval)
         if df.empty:
             return df
         df.attrs['ticker'] = ticker
@@ -80,13 +84,34 @@ def fetch_data_for_strategy(strategy_settings):
             latest_date = df.index.max().date()
             today = datetime.utcnow().date()
 
-            if latest_date >= today:
+            if end:
+                end_date = pd.to_datetime(end).date()
+                # only re-fetch if existing data doesn't reach `end`
+                if latest_date >= end_date:
+                    should_fetch = False
+            elif latest_date >= today:
                 should_fetch = False
+
         except Exception as e:
             print(f"Error reading existing data for {ticker}: {e}. Refetching...")
 
     if should_fetch:
-        df = yf.download(ticker, period=period, interval=interval, auto_adjust=True)
+        # Build kwargs dynamically: prefer (start, end) over period
+        download_kwargs = {
+            "tickers": ticker,
+            "interval": interval,
+            "auto_adjust": True,
+        }
+        if start:
+            download_kwargs["start"] = start
+        if end:
+            download_kwargs["end"] = end
+        if not start and not end and period:
+            download_kwargs["period"] = period
+        if not start and not end and not period:
+            download_kwargs["period"] = "max"
+
+        df = yf.download(**download_kwargs)
 
         if df.empty:
             print(f"Warning: No data fetched for {ticker}")
