@@ -31,7 +31,7 @@ def main():
         "Upside %"       # (Target / Last − 1), implied % return
     ]
 
-    # plot_analyst( metric_to_plot="Upside %", dfs=load_many_analyst_dfs(["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"]), names=["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"])
+    # plot_analyst( metric_to_plot="Buy % - Sell %", dfs=load_many_analyst_dfs(["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"]), names=["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"])
     plot_analyst_color_coded( metric_to_plot="Buy % - Sell %", dfs=load_many_analyst_dfs(["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"]), names=["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"])
 
 

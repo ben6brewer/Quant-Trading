@@ -5,8 +5,6 @@ import numpy as np
 from pathlib import Path
 from matplotlib.ticker import FixedLocator, FuncFormatter
 
-
-# ---------- I/O helpers ----------
 def load_analyst_df(ticker: str) -> pd.DataFrame:
     """
     Load analyst review CSV for a given ticker from data/analyst_reviews.
@@ -339,13 +337,13 @@ def plot_analyst_color_coded(
 
     # map the same user-facing metric strings to (label, column, is01)
     metric_map = {
-        "Buy %":         ("Buy % (0–1)", "buy01", True),
-        "Hold %":        ("Hold % (0–1)", "hold01", True),
-        "Sell %":        ("Sell % (0–1)", "sell01", True),
-        "Buy % - Sell %":      ("Buy − Sell (−1..1)", "buy_minus_sell", False),
-        "Target Spread": ("Target − Price ($)", "price_spread", False),
-        "Upside %":      ("Upside % (Target/Price−1)", "upside_pct", False),
-        "Price-Target":  ("Price − Target ($)", "price_minus_target", False),
+        "Buy %":         ("Buy %", "buy01", True),
+        "Hold %":        ("Hold %", "hold01", True),
+        "Sell %":        ("Sell %", "sell01", True),
+        "Buy % - Sell %":      ("Buy − Sell", "buy_minus_sell", False),
+        "Target Spread": ("Target − Price", "price_spread", False),
+        "Upside %":      ("Upside %", "upside_pct", False),
+        "Price-Target":  ("Price − Target", "price_minus_target", False),
     }
     if metric_to_plot not in metric_map:
         raise ValueError(f"Unknown metric '{metric_to_plot}'. Choose from: {list(metric_map.keys())}")
@@ -400,7 +398,7 @@ def plot_analyst_color_coded(
         df = prepared[state["idx"]]
         name = display_names[state["idx"]]
 
-        ax.set_title(f"{label} vs {name} (color-coded)", fontsize=14)
+        ax.set_title(f"{label} vs {name}", fontsize=14)
         ax.set_xlabel('Date', color='black')
         ax.set_ylabel('Price ($)', color='black')
         ax.tick_params(axis='x', colors='black')
