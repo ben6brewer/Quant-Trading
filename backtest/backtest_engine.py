@@ -7,7 +7,7 @@ from config.universe_config import BACKTEST_CONFIG
 
 class BacktestEngine:
     def __init__(self):
-        self.initial_cash = BACKTEST_CONFIG.get("initial_cash", 100000)
+        self.initial_cash = BACKTEST_CONFIG.get("initial_cash", 1000000)
         self.commission_pct = BACKTEST_CONFIG.get("commission_pct_per_trade", 0.0)  # e.g., 0.001 = 0.1%
         self.slippage_pct = BACKTEST_CONFIG.get("slippage_pct", 0.0)
     def run_backtest(self, data: pd.DataFrame):

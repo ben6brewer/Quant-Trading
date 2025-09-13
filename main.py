@@ -20,6 +20,10 @@ from utils.fetch_equity_metric_data import *
 from utils.fetch_tickers_by_metric import *
 
 def main():
+
+
+    '''
+    # ANALYST INSIGHTS
     # preprocess_analyst_data()
     metrics = [
         "Buy %",         # normalized to 0–1
@@ -33,8 +37,8 @@ def main():
 
     # plot_analyst( metric_to_plot="Buy % - Sell %", dfs=load_many_analyst_dfs(["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"]), names=["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"])
     plot_analyst_color_coded( metric_to_plot="Buy % - Sell %", dfs=load_many_analyst_dfs(["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"]), names=["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"])
-
-
+    '''
+    analyze_strategy(UNIVERSITY_ENDOWMENT_SPENDING_STRATEGY_SETTINGS)
     # compare_strategies(STRATEGY_SETTINGS_LIST)
     # compare_strategies([SPY_BUY_AND_HOLD_STRATEGY_SETTINGS, TSN_BUY_AND_HOLD_STRATEGY_SETTINGS, XLP_BUY_AND_HOLD_STRATEGY_SETTINGS])
     # compare_strategies([SPY_BUY_AND_HOLD_STRATEGY_SETTINGS, TSN_BUY_AND_HOLD_STRATEGY_SETTINGS, CAG_BUY_AND_HOLD_STRATEGY_SETTINGS, HRL_BUY_AND_HOLD_STRATEGY_SETTINGS, CPB_BUY_AND_HOLD_STRATEGY_SETTINGS, GIS_BUY_AND_HOLD_STRATEGY_SETTINGS, XLP_BUY_AND_HOLD_STRATEGY_SETTINGS])
