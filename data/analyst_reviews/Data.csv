@@ -1,0 +1,21 @@
+"## Historical Recommendations ##
+
+Let(#TargetPrice = BEST_TARGET_PRICE(Dates=Range(#Period,#Date,FRQ=M));
+
+#LastPrice = PX_LAST(Dates=Range(#Period,#Date,FRQ=M));
+
+#BuyPct = TOT_BUY_REC(Dates=Range(#Period,#Date,FRQ=M)) / TOT_ANALYST_REC(Dates=Range(#Period,#Date,FRQ=M));
+
+#SellPct = TOT_SELL_REC(Dates=Range(#Period,#Date,FRQ=M)) / TOT_ANALYST_REC(Dates=Range(#Period,#Date,FRQ=M));
+
+#HoldPct = TOT_HOLD_REC(Dates=Range(#Period,#Date,FRQ=M)) / TOT_ANALYST_REC(Dates=Range(#Period,#Date,FRQ=M));
+
+#PriceSpread = #TargetPrice - #LastPrice;)
+Get(#TargetPrice,#LastPrice,#BuyPct,#HoldPct,#SellPct,#PriceSpread)
+For(#Ticker)
+With(Fill=Prev)",Unnamed: 1,Unnamed: 2,Unnamed: 3,Unnamed: 4,Unnamed: 5,Unnamed: 6,Unnamed: 7,Unnamed: 8,Unnamed: 9,Period
+,,,,,,,,,,6M
+,,,,,,,,,,1Y
+,,,,,,,,,,2Y
+,,,,,,,,,,5Y
+,,,,,,,,,,10Y

@@ -9,7 +9,7 @@ __pycache__/
 *.pyc
 
 # Data files
-*.csv
+# *.csv
 # *.parquet
 *.feather
 *.pkl
