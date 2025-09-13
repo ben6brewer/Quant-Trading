@@ -6,6 +6,8 @@ from config.universe_config import *
 from analysis.analyze import *
 from utils.fetch_data_for_btc_composite_risk_strategy import *
 from visualizations.plot_composite_btc_risk import *
+from visualizations.plot_analyst import *
+from utils.parse_analyst_excel import *
 
 from optimization.bayesian_optimization import *
 from utils.pretty_print_df import *
@@ -18,6 +20,20 @@ from utils.fetch_equity_metric_data import *
 from utils.fetch_tickers_by_metric import *
 
 def main():
+    # preprocess_analyst_data()
+    metrics = [
+        "Buy %",         # normalized to 0–1
+        "Hold %",        # normalized to 0–1
+        "Sell %",        # normalized to 0–1
+        "Buy % - Sell %",      # Buy % − Sell % (−1..1 range)
+        "Target Spread", # Target Price − Last Price (absolute $ difference)
+        "Price-Target",
+        "Upside %"       # (Target / Last − 1), implied % return
+    ]
+
+    # plot_analyst( metric_to_plot="Upside %", dfs=load_many_analyst_dfs(["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"]), names=["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"])
+    plot_analyst_color_coded( metric_to_plot="Buy % - Sell %", dfs=load_many_analyst_dfs(["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"]), names=["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"])
+
 
     # compare_strategies(STRATEGY_SETTINGS_LIST)
     # compare_strategies([SPY_BUY_AND_HOLD_STRATEGY_SETTINGS, TSN_BUY_AND_HOLD_STRATEGY_SETTINGS, XLP_BUY_AND_HOLD_STRATEGY_SETTINGS])
@@ -29,7 +45,7 @@ def main():
     # analyze_strategy(CRYPTO_SENTIMENT_STRATEGY_SETTINGS)
     # analyze_strategy(VIX_SPY_STRATEGY_SETTINGS)
     # analyze_strategy(VIX_BTC_STRATEGY_SETTINGS)
-    analyze_strategy(BTC_BUY_AND_HOLD_STRATEGY_SETTINGS)
+    # analyze_strategy(BTC_BUY_AND_HOLD_STRATEGY_SETTINGS)
     # analyze_strategy(SPY_BUY_AND_HOLD_STRATEGY_SETTINGS)
     # plot_btc_with_risk_metric(fetch_data_for_btc_composite_risk_strategy())
     # plot_btc_color_coded_risk_metric(fetch_data_for_btc_composite_risk_strategy())
