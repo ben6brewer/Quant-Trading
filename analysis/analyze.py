@@ -106,6 +106,10 @@ def _fetch_iwv_agg_join(interval: str = "1d", start: str | None = "2015-01-01", 
     joined.attrs['ticker'] = "IWV/AGG"
     return joined
 
+def _mix_label(w_iwv: float, w_agg: float) -> str:
+    """Return labels like '85/15' from weights 0.85/0.15."""
+    return f"{int(round(w_iwv*100))}/{int(round(w_agg*100))}"
+
 
 def _synthesize_close_from_mix(df: pd.DataFrame, w_iwv: float, w_agg: float, base: float = 100.0) -> pd.Series:
     """
@@ -137,10 +141,6 @@ def _data_key_for_strategy(strategy_class):
 
 
 def _fetch_by_strategy_requirements(settings: dict, fetch_cache: dict) -> pd.DataFrame:
-    """
-    Choose what data to fetch by inspecting strategy_class.REQUIRED_COLUMNS.
-    Uses a cache so we don't refetch the same panel for the grid.
-    """
     strategy_class = settings["strategy_class"]
     interval = settings.get("interval", "1d")
     start = settings.get("start")
@@ -152,16 +152,17 @@ def _fetch_by_strategy_requirements(settings: dict, fetch_cache: dict) -> pd.Dat
 
     required = getattr(strategy_class, "REQUIRED_COLUMNS", None)
 
-    # Route: IWV + AGG joined panel
-    if required and {"close_IWV", "close_AGG"}.issubset(required):
+    if required and {"close_IWV", "close_VXUS", "close_AGG"}.issubset(required):
+        df = _fetch_iwv_vxus_agg_join(interval=interval, start=start, end=end)
+    elif required and {"close_IWV", "close_AGG"}.issubset(required):
         df = _fetch_iwv_agg_join(interval=interval, start=start, end=end)
     else:
-        # Generic path (expects your fetcher to use settings['ticker'] or other params)
-        df = fetch_data_for_strategy(settings)
+        df = fetch_data_for_strategy(settings)   # only for single-ticker strategies
 
     df = _ensure_datetime_index(df)
     fetch_cache[key] = df
     return df.copy()
+
 
 
 # ----------------------- Strategy comparers -----------------------
@@ -303,63 +304,79 @@ def _extract_payout_events_df(results_df: pd.DataFrame, payouts_df: pd.DataFrame
 
 def analyze_strategy(strategy_settings):
     """
-    Analyze a single strategy, showing FIVE TABS:
-      Tab 1: 70/30 Percent-of-Equity — Payouts panel + Equity vs No-Payout
-      Tab 2: 70/30 Growing (quarterly) — Payouts panel + Equity vs No-Payout
-      Tab 3: 100% IWV Percent-of-Equity — Payouts panel + Equity vs No-Payout
-      Tab 4: 100% IWV Growing (quarterly) — Payouts panel + Equity vs No-Payout
-      Tab 5: Comparison — TOP: overlay both mixes’ payout amounts (four bars) + cumulative lines
-                         BOTTOM: No-payout benchmarks (70/30 & IWV-only) vs all four payout NAVs
+    Analyze a single strategy with an endowment payout engine, showing THREE TABS:
+      Tab 1: 85/15 Percent-of-Equity — Payouts panel + Equity vs No-Payout
+      Tab 2: 70/30 Percent-of-Equity — Payouts panel + Equity vs No-Payout
+      Tab 3: Comparison — TOP: both mixes’ payout amounts + cumulative lines
+                          BOTTOM: No-payout benchmarks (85/15 & 70/30) vs both payout NAVs
+
+    This function feeds the payout engine a panel with close_IWV & close_AGG (what it expects),
+    and still synthesizes a blended 'close' for plotting the benchmark lines.
     """
-    # Build the input DataFrame according to the strategy requirements
+    # ---------- Fetch data by strategy requirements ----------
     fetch_cache = {}
     df = _fetch_by_strategy_requirements(strategy_settings, fetch_cache)
 
     # ✅ Ensure datetime index
     df = _ensure_datetime_index(df)
 
-    # ------------------------------------------------------------
-    # Instantiate strategy and generate signals once
-    # ------------------------------------------------------------
-    strategy_kwargs = {k: v for k, v in strategy_settings.items()
-                       if k not in ['strategy_class', 'title', 'ticker', 'engine_class', 'engine_kwargs',
-                                    'iwv100_growth_overrides', 'interval', 'start', 'end', 'label']}
-    strategy = strategy_settings["strategy_class"](**strategy_kwargs)
-
+    # ---------- Read base engine kwargs / weights ----------
     base_engine_kwargs = deepcopy(strategy_settings.get("engine_kwargs", {}))
-    base_w_iwv = float(base_engine_kwargs.get('w_iwv', 0.70))
-    base_w_agg = float(base_engine_kwargs.get('w_agg', 0.30))
-    g_val = base_engine_kwargs.get('g', None)
+    # Fallbacks if not present
+    base_w_iwv = float(base_engine_kwargs.get('w_iwv', 0.85))
+    base_w_agg = float(base_engine_kwargs.get('w_agg', 0.15))
+
+    # Percent-of-equity payout rate (quarterly) — default 0.25%
     payout_rate_q = float(base_engine_kwargs.get('payout_rate_quarterly', 0.0025))
 
-    # IWV-only growing overrides (optional per-universe_config)
-    iwv_over = deepcopy(strategy_settings.get("iwv100_growth_overrides", {}))
-    g_val_iwv = iwv_over.get('g', g_val)
-    init_spend_iwv = iwv_over.get('initial_spend_rate', base_engine_kwargs.get("initial_spend_rate", 0.01))
+    # ---------- Build the DataFrame we pass to the engine ----------
+    # If we're using the payout engine, it needs close_IWV/close_AGG columns present.
+    engine_cls = strategy_settings.get("engine_class", BacktestEngine)
+    try:
+        from backtest.endowment_payout_engine import EndowmentPayoutBacktestEngine
+    except Exception:
+        EndowmentPayoutBacktestEngine = None
 
-    signal_df = strategy.generate_signals(df)
+    if engine_cls is EndowmentPayoutBacktestEngine:
+        # Use the joined IWV/AGG panel as-is so required columns exist
+        signal_df = df.copy()
+        if 'signal' not in signal_df.columns:
+            signal_df['signal'] = 1.0
+        # For plotting, synthesize a blended 'close' at the *current* base weights
+        if 'close' not in signal_df.columns and {'close_IWV', 'close_AGG'}.issubset(signal_df.columns):
+            signal_df['close'] = _synthesize_close_from_mix(signal_df, base_w_iwv, base_w_agg, base=100.0)
+        signal_df.attrs['title'] = strategy_settings.get('title', 'IWV/AGG (panel)')
+        signal_df.attrs['ticker'] = signal_df.attrs['title']
+    else:
+        # Safety: non-payout engines (not the case here), keep previous behavior
+        strategy_class = strategy_settings["strategy_class"]
+        strategy_kwargs = {k: v for k, v in strategy_settings.items()
+                           if k not in ['strategy_class', 'title', 'ticker', 'engine_class', 'engine_kwargs',
+                                        'iwv100_growth_overrides', 'interval', 'start', 'end', 'label']}
+        strategy = strategy_class(**strategy_kwargs)
+        signal_df = strategy.generate_signals(df)
+        if 'close' not in signal_df.columns and {'close_IWV', 'close_AGG'}.issubset(df.columns):
+            signal_df['close'] = _synthesize_close_from_mix(df, base_w_iwv, base_w_agg, base=100.0)
+        if 'signal' not in signal_df.columns:
+            signal_df['signal'] = 1.0
 
-    # Synthesize 'close' if needed so plotters have a display price
-    if 'close' not in signal_df.columns and {'close_IWV', 'close_AGG'}.issubset(signal_df.columns):
-        signal_df['close'] = _synthesize_close_from_mix(signal_df, base_w_iwv, base_w_agg, base=100.0)
-    if 'signal' not in signal_df.columns:
-        signal_df['signal'] = 1.0
-
-    # Helper: run a variant and build its own benchmark (no-payout) using THAT variant's weights
+    # ---------- Variant runner ----------
     def _run_variant(name: str, w_iwv: float, w_agg: float, overrides: dict):
-        engine_cls = strategy_settings.get("engine_class", BacktestEngine)
+        """Run one mix through the chosen engine, and synthesize its own benchmark 'close'."""
+        engine_cls_loc = strategy_settings.get("engine_class", BacktestEngine)
         kw = deepcopy(base_engine_kwargs)
         kw.update({"w_iwv": w_iwv, "w_agg": w_agg})
         kw.update(overrides)
         try:
-            engine = engine_cls(**kw)
+            engine = engine_cls_loc(**kw)
         except TypeError:
             engine = BacktestEngine()
 
+        # IMPORTANT: the payout engine wants close_IWV & close_AGG present in signal_df
         res = engine.run_backtest(signal_df)
         payouts = getattr(engine, "payouts_df", None)
 
-        # Inject a proper benchmark 'close' for this weight mix, scaled to NAV start
+        # Inject a proper benchmark 'close' for this mix, scaled to NAV start
         if 'close' not in res.columns and {'close_IWV', 'close_AGG'}.issubset(signal_df.columns):
             bench_idx = _synthesize_close_from_mix(signal_df, w_iwv, w_agg, base=1.0)
             if len(res) > 0:
@@ -372,49 +389,22 @@ def analyze_strategy(strategy_settings):
         title = f"{name}"
         return res, payouts, title
 
-    # ---------------- Run four variants ----------------
-    # 70/30 percent-of-equity
-    res_pct7030, pay_pct7030, title_pct7030 = _run_variant(
-        name=f"70/30 Percent-of-Equity (q={payout_rate_q*100:.3f}%)",
-        w_iwv=base_w_iwv, w_agg=base_w_agg,
+    # ---------- Run two variants: 85/15 and 70/30 (percent-of-equity @ 0.25%/q) ----------
+    name_8515 = f"{_mix_label(0.85, 0.15)} Percent-of-Equity (q={payout_rate_q*100:.3f}%)"
+    res_8515, pay_8515, title_8515 = _run_variant(
+        name=name_8515,
+        w_iwv=0.85, w_agg=0.15,
         overrides={"spending_rule": "percent_of_equity", "payout_rate_quarterly": payout_rate_q}
     )
 
-    # 70/30 growing (quarterly)
-    res_grow7030, pay_grow7030, title_grow7030 = _run_variant(
-        name=f"70/30 Growing (quarterly, g={float(g_val) if g_val is not None else 0.0:.3%})",
-        w_iwv=base_w_iwv, w_agg=base_w_agg,
-        overrides={
-            "spending_rule": "growing_payout",
-            "g": float(g_val) if g_val is not None else 0.0,
-            "initial_spend_rate": float(base_engine_kwargs.get("initial_spend_rate", 0.01)),
-            "payout_frequency": "quarterly",
-            "per_period_growth": base_engine_kwargs.get("per_period_growth", "compounded"),
-        }
-    )
-
-    # 100% IWV percent-of-equity
-    res_pctIWV, pay_pctIWV, title_pctIWV = _run_variant(
-        name=f"100% IWV Percent-of-Equity (q={payout_rate_q*100:.3f}%)",
-        w_iwv=1.0, w_agg=0.0,
+    name_7030 = f"{_mix_label(0.70, 0.30)} Percent-of-Equity (q={payout_rate_q*100:.3f}%)"
+    res_7030, pay_7030, title_7030 = _run_variant(
+        name=name_7030,
+        w_iwv=0.70, w_agg=0.30,
         overrides={"spending_rule": "percent_of_equity", "payout_rate_quarterly": payout_rate_q}
     )
 
-    # 100% IWV growing (quarterly) — uses IWV-only overrides if provided
-    res_growIWV, pay_growIWV, title_growIWV = _run_variant(
-        name=f"100% IWV Growing (quarterly, g={float(g_val_iwv) if g_val_iwv is not None else 0.0:.3%})",
-        w_iwv=1.0, w_agg=0.0,
-        overrides={
-            "spending_rule": "growing_payout",
-            "g": float(g_val_iwv) if g_val_iwv is not None else 0.0,
-            "initial_spend_rate": float(init_spend_iwv),
-            "payout_frequency": "quarterly",
-            "per_period_growth": iwv_over.get("per_period_growth", base_engine_kwargs.get("per_period_growth", "compounded")),
-            **{k: v for k, v in iwv_over.items() if k in ("initial_cash", "commission_pct", "slippage_pct")}
-        }
-    )
-
-    # ---------------- Plot helpers ----------------
+    # ---------- Plot helpers ----------
     def _apply_xaxis_format(ax):
         ax.xaxis.set_major_locator(mdates.YearLocator(base=1))
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
@@ -430,20 +420,16 @@ def analyze_strategy(strategy_settings):
             lab.set_horizontalalignment('right')
 
     def _draw_single_panel(fig, res_df: pd.DataFrame, panel_title: str):
-        """Top: quarterly payout bars + cumulative line. Bottom: equity vs benchmark."""
+        """Top: quarterly payout bars + cumulative line. Bottom: equity vs benchmark (no payouts)."""
         fig.clear()
         ax_top = fig.add_subplot(2, 1, 1)
         ax_bot = fig.add_subplot(2, 1, 2, sharex=ax_top)
 
-        # Top: payout bars (right axis) + cumulative line (left axis)
-        events = res_df.loc[res_df['payout'] > 0, 'payout']
+        # Top: payout bars (right) + cumulative line (left)
+        events = res_df.loc[res_df['payout'] > 0, 'payout'] if 'payout' in res_df.columns else pd.Series(dtype=float)
         ax_top2 = ax_top.twinx()
-
-        # Ensure lines (ax_top) draw above bars (ax_top2)
         ax_top.set_zorder(ax_top2.get_zorder() + 1)
         ax_top.patch.set_visible(False)
-
-        # y-axis tick sizes/labels
         ax_top.tick_params(axis='y', labelsize=YTICK_SIZE)
         ax_top2.tick_params(axis='y', labelsize=YTICK_SIZE)
         ax_top.set_ylabel("Cumulative ($)", fontsize=YLABEL_SIZE)
@@ -451,146 +437,106 @@ def analyze_strategy(strategy_settings):
 
         if not events.empty:
             x = mdates.date2num(np.array(events.index.to_pydatetime()))
-            if len(x) >= 2:
-                period = float(np.median(np.diff(x)))
-            else:
-                period = 90.0  # ~quarter fallback
-            width_days = period * 0.95   # fill ~95% of period
-            ax_top2.bar(
-                x, events.values, width=width_days, align='center',
-                alpha=0.8, edgecolor='none', label="Payout (period)", zorder=1
-            )
+            period = float(np.median(np.diff(x))) if len(x) >= 2 else 90.0
+            width_days = period * 0.95
+            ax_top2.bar(x, events.values, width=width_days, align='center',
+                        alpha=0.8, edgecolor='none', zorder=1)
             ymax = float(events.max())
             ax_top2.set_ylim(0, ymax * 1.15 if ymax > 0 else 1.0)
 
-        ax_top.plot(
-            res_df.index, res_df['cum_payout'], linewidth=1.5, color="black",
-            label="Cumulative payouts", zorder=3
-        )
+        if 'cum_payout' in res_df.columns:
+            ax_top.plot(res_df.index, res_df['cum_payout'], linewidth=1.5, color="black",
+                        label="Cumulative payouts", zorder=3)
+
         ax_top.set_title(panel_title)
         ax_top.grid(True, alpha=0.3)
         ax_top.legend(loc="upper left")
-
-        # ✅ Show/format x-axis on TOP chart too
         _force_top_xticks(ax_top)
 
         # Bottom: NAV vs benchmark (no payout)
         ax_bot.plot(res_df.index, res_df['total_equity'], linewidth=1.5, label="Strategy NAV")
         if 'close' in res_df.columns:
             ax_bot.plot(res_df.index, res_df['close'], linewidth=1.5, alpha=0.9, label="Benchmark (no payouts)")
-        ax_bot.set_title(f"Equity Curve")
+        ax_bot.set_title("Equity Curve")
         ax_bot.set_ylabel("Equity ($)", fontsize=YLABEL_SIZE)
         ax_bot.grid(True, alpha=0.3)
         ax_bot.legend(loc="upper left")
-
         _apply_xaxis_format(ax_bot)
         ax_bot.tick_params(axis='x', which='both', labelrotation=XROT, labelsize=XTICK_SIZE)
         ax_bot.tick_params(axis='y', labelsize=YTICK_SIZE)
         for lab in ax_bot.get_xticklabels():
             lab.set_horizontalalignment('right')
 
-        # Do NOT call fig.autofmt_xdate(); it tends to re-hide top shared labels
         fig.tight_layout()
 
     def _draw_compare_panel(fig):
-        """Top: four payout series (bars) + cumulative lines; Bottom: 2 benchmarks + 4 NAV lines."""
+        """Top: both payout series (bars) + cumulative lines; Bottom: benchmarks + both NAVs."""
         fig.clear()
         ax_top = fig.add_subplot(2, 1, 1)
         ax_bot = fig.add_subplot(2, 1, 2, sharex=ax_top)
         ax_top2 = ax_top.twinx()
 
-        # Ensure lines (ax_top) draw above bars (ax_top2)
         ax_top.set_zorder(ax_top2.get_zorder() + 1)
         ax_top.patch.set_visible(False)
-
-        # y-axis sizes/labels for top
         ax_top.tick_params(axis='y', labelsize=YTICK_SIZE)
         ax_top2.tick_params(axis='y', labelsize=YTICK_SIZE)
         ax_top.set_ylabel("Cumulative ($)", fontsize=YLABEL_SIZE)
         ax_top2.set_ylabel("Payout per period ($)", fontsize=YLABEL_SIZE)
 
-        # Build aligned payout amounts (Series -> DataFrame)
-        ev_pct7030 = res_pct7030.loc[res_pct7030['payout'] > 0, 'payout']
-        ev_grow7030 = res_grow7030.loc[res_grow7030['payout'] > 0, 'payout']
-        ev_pctIWV = res_pctIWV.loc[res_pctIWV['payout'] > 0, 'payout']
-        ev_growIWV = res_growIWV.loc[res_growIWV['payout'] > 0, 'payout']
+        ev_8515 = res_8515.loc[res_8515['payout'] > 0, 'payout'] if 'payout' in res_8515.columns else pd.Series(dtype=float)
+        ev_7030 = res_7030.loc[res_7030['payout'] > 0, 'payout'] if 'payout' in res_7030.columns else pd.Series(dtype=float)
 
-        combined = pd.DataFrame({
-            "70/30 %": ev_pct7030,
-            "70/30 g": ev_grow7030,
-            "IWV %": ev_pctIWV,
-            "IWV g": ev_growIWV
-        }).fillna(0.0)
-
+        combined = pd.DataFrame({"85/15 %": ev_8515, "70/30 %": ev_7030}).fillna(0.0)
         if not combined.empty:
             x = mdates.date2num(np.array(combined.index.to_pydatetime()))
-            if len(x) >= 2:
-                period = float(np.median(np.diff(x)))
-            else:
-                period = 90.0  # ~quarter fallback
-            total_band = period * 0.98  # ~100% of period width across all 4 bars
-            width = total_band / 4.0
-            offsets = np.array([-1.5, -0.5, 0.5, 1.5]) * width
-
-            colors = ['tab:blue', 'tab:red', 'tab:green', 'tab:orange']
-            labels = combined.columns.tolist()
-            for i, col in enumerate(labels):
-                ax_top2.bar(
-                    x + offsets[i], combined[col].values, width=width, align='center',
-                    alpha=0.6, edgecolor='none', color=colors[i], label=f"Payout ({col})", zorder=1
-                )
-
+            period = float(np.median(np.diff(x))) if len(x) >= 2 else 90.0
+            total_band = period * 0.98
+            width = total_band / 2.0
+            offsets = np.array([-0.5, 0.5]) * width
+            colors = ['tab:blue', 'tab:orange']
+            for i, col in enumerate(combined.columns):
+                ax_top2.bar(x + offsets[i], combined[col].values, width=width, align='center',
+                            alpha=0.6, edgecolor='none', color=colors[i], label=f"Payout ({col})", zorder=1)
             ymax = float(combined.values.max())
             ax_top2.set_ylim(0, ymax * 1.15 if ymax > 0 else 1.0)
             ax_top2.margins(y=0.1)
 
-        # Cumulative payout lines (left axis)
-        ax_top.plot(res_pct7030.index, res_pct7030['cum_payout'], linewidth=1.5,
-                    color='tab:blue', label="70/30 %", zorder=3)
-        ax_top.plot(res_grow7030.index, res_grow7030['cum_payout'], linewidth=1.5,
-                    color='tab:red', label="70/30 g", zorder=3)
-        ax_top.plot(res_pctIWV.index, res_pctIWV['cum_payout'], linewidth=1.5,
-                    color='tab:green', label="IWV %", zorder=3)
-        ax_top.plot(res_growIWV.index, res_growIWV['cum_payout'], linewidth=1.5,
-                    color='tab:orange', label="IWV g", zorder=3)
+        if 'cum_payout' in res_8515.columns:
+            ax_top.plot(res_8515.index, res_8515['cum_payout'], linewidth=1.5, color='tab:orange',
+                        label="85/15 cumulative", zorder=3)
+        if 'cum_payout' in res_7030.columns:
+            ax_top.plot(res_7030.index, res_7030['cum_payout'], linewidth=1.5, color='tab:blue',
+                        label="70/30 cumulative", zorder=3)
 
         ax_top.set_title("Payout Comparisons")
         ax_top.grid(True, alpha=0.3)
         ax_top.legend(loc="upper left")
-
-        # ✅ Show/format x-axis on TOP chart too
         _force_top_xticks(ax_top)
 
-        # Bottom: benchmarks + four NAVs
-        ax_bot.plot(res_pct7030.index, res_pct7030['close'], linewidth=1.5, alpha=0.9, color='black', label="Benchmark 70/30 (no payouts)")
-        ax_bot.plot(res_pctIWV.index, res_pctIWV['close'], linewidth=1.5, alpha=0.9, color='gray', label="Benchmark IWV-only (no payouts)")
-
-        ax_bot.plot(res_pct7030.index, res_pct7030['total_equity'], linewidth=1.5, color='tab:blue', label="NAV 70/30 %")
-        ax_bot.plot(res_grow7030.index, res_grow7030['total_equity'], linewidth=1.5, color='tab:red', label="NAV 70/30 g")
-        ax_bot.plot(res_pctIWV.index, res_pctIWV['total_equity'], linewidth=1.5, color='tab:green', label="NAV IWV %")
-        ax_bot.plot(res_growIWV.index, res_growIWV['total_equity'], linewidth=1.5, color='tab:orange', label="NAV IWV g")
-
+        # Bottom: benchmarks + two NAVs
+        if 'close' in res_8515.columns:
+            ax_bot.plot(res_8515.index, res_8515['close'], linewidth=1.5, alpha=0.9, color='black', label="Benchmark 85/15 (no payouts)")
+        if 'close' in res_7030.columns:
+            ax_bot.plot(res_7030.index, res_7030['close'], linewidth=1.5, alpha=0.9, color='gray', label="Benchmark 70/30 (no payouts)")
+        ax_bot.plot(res_8515.index, res_8515['total_equity'], linewidth=1.5, color='tab:orange',   label="NAV 85/15 %")
+        ax_bot.plot(res_7030.index, res_7030['total_equity'], linewidth=1.5, color='tab:blue', label="NAV 70/30 %")
         ax_bot.set_title("Benchmarks vs Payout Strategies")
         ax_bot.set_ylabel("Equity ($)", fontsize=YLABEL_SIZE)
         ax_bot.grid(True, alpha=0.3)
         ax_bot.legend(loc="upper left")
-
         _apply_xaxis_format(ax_bot)
         ax_bot.tick_params(axis='x', which='both', labelrotation=XROT, labelsize=XTICK_SIZE)
         ax_bot.tick_params(axis='y', labelsize=YTICK_SIZE)
         for lab in ax_bot.get_xticklabels():
             lab.set_horizontalalignment('right')
 
-        # Avoid fig.autofmt_xdate(); it can hide shared labels
         fig.tight_layout()
 
-    # ---------------- Tabs ----------------
+    # ---------- Tabs ----------
     plot_funcs = [
-        ("70/30: Percent-of-Equity",      lambda fig: _draw_single_panel(fig, res_pct7030, title_pct7030)),
-        ("70/30: Growing (Quarterly)",    lambda fig: _draw_single_panel(fig, res_grow7030, title_grow7030)),
-        ("100% IWV: Percent-of-Equity",   lambda fig: _draw_single_panel(fig, res_pctIWV, title_pctIWV)),
-        ("100% IWV: Growing (Quarterly)", lambda fig: _draw_single_panel(fig, res_growIWV, title_growIWV)),
-        ("Comparison: Payouts & Equity",  lambda fig: _draw_compare_panel(fig)),
+        (title_8515, lambda fig: _draw_single_panel(fig, res_8515, title_8515)),
+        (title_7030, lambda fig: _draw_single_panel(fig, res_7030, title_7030)),
+        ("Comparison: Payouts & Equity", lambda fig: _draw_compare_panel(fig)),
     ]
 
     idx = [0]
@@ -617,10 +563,10 @@ def analyze_strategy(strategy_settings):
     draw()
     plt.show()
 
-    # ---------------- Metrics table (optional) ----------------
+    # ---------- Metrics table (optional) ----------
     metrics_rows = []
-    labels = [title_pct7030, title_grow7030, title_pctIWV, title_growIWV]
-    for title, res in zip(labels, [res_pct7030, res_grow7030, res_pctIWV, res_growIWV]):
+    labels = [title_8515, title_7030]
+    for title, res in zip(labels, [res_8515, res_7030]):
         m = extract_performance_metrics_dict(res)
         m['Strategy'] = title
         metrics_rows.append(m)
@@ -706,3 +652,233 @@ def _fetch_iwv_vxus_agg_join(interval: str = "1d",
     joined.attrs["title"]  = "IWV + VXUS + AGG (joined)"
     joined.attrs["ticker"] = "IWV/VXUS/AGG"
     return joined
+
+def plot_endowment_payout_comparison(
+    strategy_settings,
+    label_dates=("2009-03-13", "2020-03-25"),
+    add_end_payout_labels: bool = True,
+):
+    """
+    Bars (right y): quarterly payouts for 85/15 and 70/30 (percent-of-equity rule)
+    Lines (left y): cumulative dollars paid
+    Labels (right side): payout amounts at the specified label_dates (snapped to that quarter)
+    """
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    from matplotlib.offsetbox import TextArea, AnnotationBbox
+    from matplotlib.offsetbox import HPacker
+    from copy import deepcopy
+    from backtest.backtest_engine import BacktestEngine
+
+    # ---------- Data fetch ----------
+    fetch_cache = {}
+    df = _fetch_by_strategy_requirements(strategy_settings, fetch_cache)
+    df = _ensure_datetime_index(df)
+
+    base_engine_kwargs = deepcopy(strategy_settings.get("engine_kwargs", {}))
+    payout_rate_q = float(base_engine_kwargs.get("payout_rate_quarterly", 0.0025))
+
+    engine_cls = strategy_settings.get("engine_class", BacktestEngine)
+    try:
+        from backtest.endowment_payout_engine import EndowmentPayoutBacktestEngine
+    except Exception:
+        EndowmentPayoutBacktestEngine = None
+
+    # Build signal frame
+    if engine_cls is EndowmentPayoutBacktestEngine:
+        signal_df = df.copy()
+        if 'signal' not in signal_df.columns:
+            signal_df['signal'] = 1.0
+    else:
+        strategy_class = strategy_settings["strategy_class"]
+        strategy_kwargs = {k: v for k, v in strategy_settings.items()
+                           if k not in ['strategy_class', 'title', 'ticker', 'engine_class', 'engine_kwargs',
+                                        'iwv100_growth_overrides', 'interval', 'start', 'end', 'label']}
+        strategy = strategy_class(**strategy_kwargs)
+        signal_df = strategy.generate_signals(df)
+        if 'signal' not in signal_df.columns:
+            signal_df['signal'] = 1.0
+
+    def _run_variant(w_iwv: float, w_agg: float):
+        kw = deepcopy(base_engine_kwargs)
+        kw.update({
+            "w_iwv": w_iwv, "w_agg": w_agg,
+            "spending_rule": "percent_of_equity",
+            "payout_rate_quarterly": payout_rate_q
+        })
+        try:
+            engine = engine_cls(**kw)
+        except TypeError:
+            engine = BacktestEngine()
+        return engine.run_backtest(signal_df)
+
+    res_8515 = _run_variant(0.85, 0.15)
+    res_7030 = _run_variant(0.70, 0.30)
+
+    # ---------- Payout series & cumulative ----------
+    def _payout_series(res_df: pd.DataFrame) -> pd.Series:
+        if 'payout' not in res_df.columns:
+            return pd.Series(dtype=float)
+        s = res_df.loc[res_df['payout'] > 0, 'payout'].copy()
+        s.index = pd.to_datetime(s.index)
+        return s
+
+    ev_8515 = _payout_series(res_8515)
+    ev_7030 = _payout_series(res_7030)
+
+    # ---------- Plot ----------
+    fig, ax_left = plt.subplots(figsize=(14, 4.2))
+    ax_right = ax_left.twinx()
+
+    # Bars (payouts, right axis)
+    combined = pd.DataFrame({"85/15 %": ev_8515, "70/30 %": ev_7030}).fillna(0.0)
+    if not combined.empty:
+        x = mdates.date2num(np.array(combined.index.to_pydatetime()))
+        period = float(np.median(np.diff(x))) if len(x) >= 2 else 90.0
+        total_band = period * 0.98
+        width = total_band / 2.0
+        offsets = np.array([-0.5, 0.5]) * width
+        colors = ['tab:orange', 'tab:blue']
+        cols = combined.columns.tolist()
+        for i, col in enumerate(cols):
+            ax_right.bar(x + offsets[i], combined[col].values,
+                         width=width, align='center', alpha=0.35,
+                         edgecolor='none', color=colors[i], label=f"Payout ({col})", zorder=1)
+        ymax = float(combined.values.max()) if combined.size else 0.0
+        ax_right.set_ylim(0, ymax * 1.15 if ymax > 0 else 1.0)
+        ax_right.set_ylabel("Payout per period ($)")
+
+    # Cumulative payout lines (left axis)  ← swap colors here
+    if 'cum_payout' in res_8515.columns:
+        ax_left.plot(
+            res_8515.index, res_8515['cum_payout'],
+            linewidth=2.0, color='tab:orange', label="85/15 cumulative", zorder=3
+        )
+    if 'cum_payout' in res_7030.columns:
+        ax_left.plot(
+            res_7030.index, res_7030['cum_payout'],
+            linewidth=2.0, color='tab:blue', label="70/30 cumulative", zorder=3
+        )
+
+
+    ax_left.set_ylabel("Cumulative ($)")
+    ax_left.set_title("Payout Comparisons")
+    ax_left.grid(True, linestyle='--', alpha=0.4)
+    ax_left.legend(loc="upper left")
+
+    ax_left.xaxis.set_major_locator(mdates.YearLocator(base=1))
+    ax_left.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax_left.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=[3, 6, 9, 12]))
+    for lab in ax_left.get_xticklabels():
+        lab.set_rotation(45)
+        lab.set_horizontalalignment('right')
+
+    # ---------- Equity-curve-style label helpers ----------
+    def _fmt_dollar(x):
+        try:
+            return f"${x:,.0f}"
+        except Exception:
+            return f"{x:.2f}"
+
+    def _make_label(ax, xy, text, edgecolor, xoff_pts=10, yoff_pts=0, z=7, alpha=0.95):
+        price = TextArea(text, textprops=dict(fontsize=9, fontweight="bold", color=edgecolor))
+        packed = HPacker(children=[price], align="center", pad=0, sep=2)
+        ab = AnnotationBbox(
+            packed, xy, xybox=(xoff_pts, yoff_pts),
+            xycoords='data', boxcoords=("offset points"),
+            box_alignment=(0.0, 0.5), frameon=True,
+            bboxprops=dict(boxstyle="round,pad=0.28", fc="white", ec=edgecolor, alpha=alpha),
+            zorder=z
+        )
+        ax.add_artist(ab)
+        return ab
+
+    def _get_xybox_pts(ab): return tuple(ab.xybox)
+    def _set_xybox_pts(ab, xo, yo): ab.xybox = (float(xo), float(yo))
+
+    # Snap a date to the payout index (on/before; else nearest after)
+    def _snap_to_payout(ps: pd.Series, t: pd.Timestamp):
+        ps = ps.sort_index()
+        t = pd.to_datetime(t)
+        if (ps.index <= t).any():
+            loc = ps.index.get_indexer([t], method='pad')[0]
+            if loc == -1:
+                loc = 0
+        else:
+            loc = ps.index.get_indexer([t], method='nearest')[0]
+        return ps.index[loc], float(ps.iloc[loc])
+
+    # ---------- Build right-side labels ----------
+    right_boxes = []
+    # End-of-series payout labels
+    if add_end_payout_labels:
+        if not ev_8515.empty:
+            right_boxes.append(_make_label(ax_right, (ev_8515.index[-1], float(ev_8515.iloc[-1])),
+                                           _fmt_dollar(float(ev_8515.iloc[-1])), edgecolor='tab:orange',
+                                           xoff_pts=10, yoff_pts=0, z=8, alpha=0.95))
+        if not ev_7030.empty:
+            right_boxes.append(_make_label(ax_right, (ev_7030.index[-1], float(ev_7030.iloc[-1])),
+                                           _fmt_dollar(float(ev_7030.iloc[-1])), edgecolor='tab:blue',
+                                           xoff_pts=10, yoff_pts=0, z=8, alpha=0.95))
+
+    # Hardcoded dates -> payout labels (no drawdowns shown)
+    label_dates = [pd.to_datetime(d) for d in label_dates]
+    for t in label_dates:
+        if not ev_8515.empty:
+            d,p = _snap_to_payout(ev_8515, t)
+            right_boxes.append(_make_label(ax_right, (d, p), _fmt_dollar(p),
+                                           edgecolor='tab:orange', xoff_pts=10, yoff_pts=0, z=7, alpha=0.92))
+        if not ev_7030.empty:
+            d,p = _snap_to_payout(ev_7030, t)
+            right_boxes.append(_make_label(ax_right, (d, p), _fmt_dollar(p),
+                                           edgecolor='tab:blue', xoff_pts=10, yoff_pts=0, z=7, alpha=0.92))
+
+    # ---- Stack labels vertically so none overlap (same as equity function) ----
+    if right_boxes:
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        dpi = fig.dpi
+        px_per_point = dpi / 72.0
+        MIN_GAP_PX = 40
+
+        info = []
+        for ab in right_boxes:
+            x_data, y_data = ab.xy
+            x_num = mdates.date2num(pd.to_datetime(x_data))
+            x_disp, y_disp = ax_right.transData.transform((x_num, y_data))
+            xo_pts, yo_pts = _get_xybox_pts(ab)
+            x_txt = x_disp + xo_pts * px_per_point
+            y_txt = y_disp + yo_pts * px_per_point
+            info.append([ab, x_disp, y_disp, x_txt, y_txt, xo_pts, yo_pts])
+
+        info.sort(key=lambda r: -r[4])  # y_txt descending
+        prev_y = None
+        for ab, x_disp, y_disp, x_txt, y_txt, xo_pts, yo_pts in info:
+            if prev_y is None:
+                prev_y = y_txt
+            else:
+                target_y = min(y_txt, prev_y - MIN_GAP_PX)
+                delta_px = target_y - (y_disp + yo_pts * px_per_point)
+                new_yo_pts = yo_pts + (delta_px / px_per_point)
+                _set_xybox_pts(ab, xo_pts, new_yo_pts)
+                prev_y = y_disp + new_yo_pts * px_per_point
+
+        # keep labels within vertical bounds of right axis
+        fig.canvas.draw()
+        ax_disp = ax_right.get_window_extent(renderer=renderer)
+        for ab in right_boxes:
+            bb = ab.get_window_extent(renderer=renderer)
+            xo_pts, yo_pts = _get_xybox_pts(ab)
+            adjust = 0.0
+            if bb.y0 < ax_disp.y0:
+                adjust = (ax_disp.y0 - bb.y0) / px_per_point + 2
+            elif bb.y1 > ax_disp.y1:
+                adjust = - (bb.y1 - ax_disp.y1) / px_per_point - 2
+            if adjust:
+                _set_xybox_pts(ab, xo_pts, yo_pts + adjust)
+        fig.canvas.draw()
+
+    fig.tight_layout()
+    return fig, (ax_left, ax_right)

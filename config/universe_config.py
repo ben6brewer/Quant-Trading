@@ -1,5 +1,6 @@
 # config/universe_config.py
 
+from strategies.endowment.static_mix_iwv_agg_strategy import StaticMixIWVAGG
 from strategies.moving_averages.slow_fast_ma_strategy import SlowFastMAStrategy
 from strategies.moving_averages.fifty_week_ma_strategy import FiftyWeekMAStrategy
 from strategies.sentiment.crypto_sentiment_strategy import CryptoSentimentStrategy
@@ -167,34 +168,68 @@ XLP_BUY_AND_HOLD_STRATEGY_SETTINGS = {
     "type": "equity",
 }
 
+# UNIVERSITY_ENDOWMENT_SPENDING_STRATEGY_SETTINGS = {
+#     "title": "Endowment Spending 70/30",
+#     "ticker": "IWV/AGG",
+#     "strategy_class": UniversityEndowmentSpendingStrategy,
+#     "engine_class": EndowmentPayoutBacktestEngine,
+#     # "start": "2015-01-01",
+#     "period": "max",
+#     "interval": "1d",
+#     "engine_kwargs": {
+#         "w_iwv": 0.70,
+#         "w_agg": 0.30,
+#         # choose a default spending rule for the 70/30 view
+#         "spending_rule": "growing_payout",
+#         "g": 0.05,                 # 70/30 growth rate
+#         "initial_spend_rate": 0.01,# 70/30 first-year annual payout as % of initial equity
+#         "payout_frequency": "quarterly",
+#     },
+
+#     # 👇 IWV-only overrides used *only* for the 100% IWV growing run
+#     "iwv100_growth_overrides": {
+#         "initial_spend_rate": 0.01,   # e.g., 3% instead of 2%
+#         "g": 0.06,                    # e.g., 6% annual growth instead of 5%
+#         # you can also override initial_cash/commission/slippage here if desired
+#         # "initial_cash": 1_000_000,
+#         # "commission_pct": 0.0005,
+#         # "slippage_pct": 0.0005,
+#     }
+# }
+
 UNIVERSITY_ENDOWMENT_SPENDING_STRATEGY_SETTINGS = {
-    "title": "Endowment Spending 70/30",
-    "ticker": "IWV/AGG",
-    "strategy_class": UniversityEndowmentSpendingStrategy,
-    "engine_class": EndowmentPayoutBacktestEngine,
-    "start": "2015-01-01",
-    #"period": "max",
+    "strategy_class": StaticMixIWVAGG,     # ✅ has REQUIRED_COLUMNS = {"close_IWV","close_AGG"}
+    "w_iwv": 0.85,                         # base mix (85/15); the code also builds 70/30 variants
+    "w_agg": 0.15,
+    "title": "Endowment (IWV/AGG base 85/15)",
+    "label": "Endowment 85/15",
     "interval": "1d",
+    "engine_class": EndowmentPayoutBacktestEngine,   # use your payout engine
     "engine_kwargs": {
-        "w_iwv": 0.70,
-        "w_agg": 0.30,
-        # choose a default spending rule for the 70/30 view
-        "spending_rule": "growing_payout",
-        "g": 0.05,                 # 70/30 growth rate
-        "initial_spend_rate": 0.01,# 70/30 first-year annual payout as % of initial equity
+        # quarter payout = 0.25% of NAV
+        "spending_rule": "percent_of_equity",
+        "payout_rate_quarterly": 0.0025,
+
+        # These are read by analyze_strategy() to synthesize benchmarks and run variants
+        "w_iwv": 0.85,
+        "w_agg": 0.15,
+
+        # (optional, only used when you open the “growing” tabs)
+        "initial_spend_rate": 0.01,    # 1% starting rate
+        "g": 0.00,                     # 0% quarterly growth for the “growing” example unless you change it
         "payout_frequency": "quarterly",
     },
 
-    # 👇 IWV-only overrides used *only* for the 100% IWV growing run
+    # Optional “IWV only” overrides for the IWV tabs (not required)
     "iwv100_growth_overrides": {
-        "initial_spend_rate": 0.01,   # e.g., 3% instead of 2%
-        "g": 0.06,                    # e.g., 6% annual growth instead of 5%
-        # you can also override initial_cash/commission/slippage here if desired
-        # "initial_cash": 1_000_000,
-        # "commission_pct": 0.0005,
-        # "slippage_pct": 0.0005,
-    }
+        "initial_spend_rate": 0.01,
+        "g": 0.00
+    },
+    # You can also limit the period here if you want:
+    "start": "2003-10-01",
+    # "end": "2025-01-01",
 }
+
 
 
 AGG_BUY_AND_HOLD_STRATEGY_SETTINGS = {

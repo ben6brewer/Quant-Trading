@@ -25,7 +25,7 @@ from backtest.backtest_engine import BacktestEngine
 from strategies.endowment.static_mix_iwv_vxus_agg import StaticMixIWV_VXUS_AGG
 
 def main():
-    compare_strategies(build_iwv_agg_grid())
+    # compare_strategies(build_iwv_agg_grid())
     # compare_strategies(build_iwv_vxus_agg_grid())
 
 
@@ -47,6 +47,16 @@ def main():
     # plot_analyst(metric_to_plot="Upside %", dfs=load_many_analyst_dfs(["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"]), names=["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"])
     # plot_analyst_color_coded( metric_to_plot="Upside %", dfs=load_many_analyst_dfs(["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"]), names=["NVDA", "AAPL", "MSFT", "CRM", "CRWD", "CSCO", "INTC", "TSM"])
     # analyze_strategy(UNIVERSITY_ENDOWMENT_SPENDING_STRATEGY_SETTINGS)
+    fig, _ = plot_endowment_payout_comparison(
+    UNIVERSITY_ENDOWMENT_SPENDING_STRATEGY_SETTINGS,
+    label_dates=("2009-03-13", "2020-03-25"),
+    add_end_payout_labels=True
+    )
+    # then:
+    import matplotlib.pyplot as plt
+    plt.show(block=True)
+
+
     # compare_strategies(STRATEGY_SETTINGS_LIST)
     # compare_strategies([SPY_BUY_AND_HOLD_STRATEGY_SETTINGS, TSN_BUY_AND_HOLD_STRATEGY_SETTINGS, XLP_BUY_AND_HOLD_STRATEGY_SETTINGS])
     # compare_strategies([SPY_BUY_AND_HOLD_STRATEGY_SETTINGS, TSN_BUY_AND_HOLD_STRATEGY_SETTINGS, CAG_BUY_AND_HOLD_STRATEGY_SETTINGS, HRL_BUY_AND_HOLD_STRATEGY_SETTINGS, CPB_BUY_AND_HOLD_STRATEGY_SETTINGS, GIS_BUY_AND_HOLD_STRATEGY_SETTINGS, XLP_BUY_AND_HOLD_STRATEGY_SETTINGS])
