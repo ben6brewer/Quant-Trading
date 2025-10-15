@@ -13,6 +13,9 @@ from strategies.buy_and_hold.cag_buy_and_hold_strategy import CagBuyAndHoldStrat
 from strategies.buy_and_hold.hrl_buy_and_hold_strategy import HrlBuyAndHoldStrategy
 from strategies.buy_and_hold.cpb_buy_and_hold_strategy import CpbBuyAndHoldStrategy
 from strategies.buy_and_hold.jbs_buy_and_hold_strategy import GisBuyAndHoldStrategy
+from strategies.buy_and_hold.amzn_buy_and_hold_strategy import AmznBuyAndHoldStrategy
+from strategies.buy_and_hold.nvda_buy_and_hold_strategy import NvdaBuyAndHoldStrategy
+from strategies.buy_and_hold.azo_buy_and_hold_strategy import AzoBuyAndHoldStrategy
 from strategies.endowment.university_endowment_buy_and_hold_strategy import UniversityEndowmentSpendingStrategy
 from backtest.endowment_payout_engine import * 
 
@@ -170,7 +173,7 @@ UNIVERSITY_ENDOWMENT_SPENDING_STRATEGY_SETTINGS = {
     "strategy_class": UniversityEndowmentSpendingStrategy,
     "engine_class": EndowmentPayoutBacktestEngine,
     "start": "2015-01-01",
-    # "period": "max",
+    #"period": "max",
     "interval": "1d",
     "engine_kwargs": {
         "w_iwv": 0.70,
@@ -178,13 +181,13 @@ UNIVERSITY_ENDOWMENT_SPENDING_STRATEGY_SETTINGS = {
         # choose a default spending rule for the 70/30 view
         "spending_rule": "growing_payout",
         "g": 0.05,                 # 70/30 growth rate
-        "initial_spend_rate": 0.02,# 70/30 first-year annual payout as % of initial equity
+        "initial_spend_rate": 0.01,# 70/30 first-year annual payout as % of initial equity
         "payout_frequency": "quarterly",
     },
 
     # 👇 IWV-only overrides used *only* for the 100% IWV growing run
     "iwv100_growth_overrides": {
-        "initial_spend_rate": 0.02,   # e.g., 3% instead of 2%
+        "initial_spend_rate": 0.01,   # e.g., 3% instead of 2%
         "g": 0.06,                    # e.g., 6% annual growth instead of 5%
         # you can also override initial_cash/commission/slippage here if desired
         # "initial_cash": 1_000_000,
@@ -207,17 +210,44 @@ AGG_BUY_AND_HOLD_STRATEGY_SETTINGS = {
 
 BACKTEST_CONFIG = {
     "initial_cash": 100,
-    "commission_pct_per_trade": 0.002,
-    "slippage_pct": 0.001,
+    "commission_pct_per_trade": 0.000,
+    "slippage_pct": 0.000,
+}
+
+AZO_BUY_AND_HOLD_STRATEGY_SETTINGS = {
+    "title": "Buy and Hold",
+    "ticker": "AZO",
+    "strategy_class": AzoBuyAndHoldStrategy,
+    "period": "max",  # <-- use start instead of period
+    "interval": "1d",
+}
+
+NVDA_BUY_AND_HOLD_STRATEGY_SETTINGS = {
+    "title": "Buy and Hold",
+    "ticker": "NVDA",
+    "strategy_class": NvdaBuyAndHoldStrategy,
+    "period": "max",  # <-- use start instead of period
+    "interval": "1d",
+}
+
+AMZN_BUY_AND_HOLD_STRATEGY_SETTINGS = {
+    "title": "Buy and Hold",
+    "ticker": "AMZN",
+    "strategy_class": AmznBuyAndHoldStrategy,
+    "period": "max",  # <-- use start instead of period
+    "interval": "1d",
 }
 
 STRATEGY_SETTINGS_LIST = [
-    CRYPTO_SENTIMENT_STRATEGY_SETTINGS,
-    FIFTY_WEEK_MA_STRATEGY_SETTINGS,
-    VIX_BTC_STRATEGY_SETTINGS,
-    VIX_SPY_STRATEGY_SETTINGS,
-    SLOW_FAST_MA_STRATEGY_SETTINGS,
+    # CRYPTO_SENTIMENT_STRATEGY_SETTINGS,
+    # FIFTY_WEEK_MA_STRATEGY_SETTINGS,
+    # VIX_BTC_STRATEGY_SETTINGS,
+    # VIX_SPY_STRATEGY_SETTINGS,
+    # SLOW_FAST_MA_STRATEGY_SETTINGS,
     BTC_BUY_AND_HOLD_STRATEGY_SETTINGS,
     SPY_BUY_AND_HOLD_STRATEGY_SETTINGS,
+    AZO_BUY_AND_HOLD_STRATEGY_SETTINGS,
+    NVDA_BUY_AND_HOLD_STRATEGY_SETTINGS,
+    AMZN_BUY_AND_HOLD_STRATEGY_SETTINGS
 ]  
 

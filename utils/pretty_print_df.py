@@ -19,7 +19,7 @@ def pretty_print_df(df: pd.DataFrame, title: str = None):
         formatted_row = []
         for value in row:
             if isinstance(value, (float, np.floating)):
-                formatted_row.append(f"{value:.3f}")
+                formatted_row.append(f"{value:.5f}")
             elif isinstance(value, (pd.Timestamp, datetime)):
                 formatted_row.append(value.strftime('%Y-%m-%d'))
             else:

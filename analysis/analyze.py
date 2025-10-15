@@ -1,19 +1,49 @@
 # analysis/analyze.py
 
 from config.secrets_config import *
-from config.universe_config import *
+from config.universe_config import *  # can export strategy classes and grid builders
 from visualizations.plot_signals import *
 from visualizations.plot_equity_curve import *
-from backtest.backtest_engine import *
+from backtest.backtest_engine import BacktestEngine
 from utils.pretty_print_df import *
-from backtest.performance_metrics import *
-from utils.data_fetch import *
+from backtest.performance_metrics import extract_performance_metrics_dict
+from utils.data_fetch import fetch_data_for_strategy
+from backtest.performance_metrics import extract_performance_metrics_dict, extract_eif_metrics_dict
+
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates  # date axis formatting
 from copy import deepcopy
+from collections import defaultdict
+# --- force a consistent RF into a metrics dict ---
+from backtest.performance_metrics import (
+    calculate_sharpe_ratio, calculate_sortino_ratio
+)
+
+def _apply_rf_to_metrics(metrics: dict, results_df, rf: float) -> dict:
+    """Rewrite Sharpe/Sortino in `metrics` using rf, adding the keys if missing."""
+    sr = float(calculate_sharpe_ratio(results_df, risk_free_rate=rf))
+    so = float(calculate_sortino_ratio(results_df, risk_free_rate=rf))
+
+    has_sharpe = False
+    has_sortino = False
+    for k in list(metrics.keys()):
+        lk = k.lower()
+        if "sharpe" in lk:
+            metrics[k] = sr
+            has_sharpe = True
+        if "sortino" in lk:
+            metrics[k] = so
+            has_sortino = True
+
+    if not has_sharpe:
+        metrics["Sharpe"] = sr
+    if not has_sortino:
+        metrics["Sortino"] = so
+    return metrics
+
 
 # ---------- Shared plotting style ----------
 XROT = 45        # x-axis label rotation (degrees)
@@ -28,44 +58,35 @@ except Exception:
     EndowmentPayoutBacktestEngine = None
 
 
+# ----------------------- Index / fetch helpers -----------------------
+
 def _ensure_datetime_index(df: pd.DataFrame, label_for_logs: str = "") -> pd.DataFrame:
     """Make sure the DataFrame has a DatetimeIndex."""
     if not pd.api.types.is_datetime64_any_dtype(df.index):
         if 'date' in df.columns:
+            df = df.copy()
             df['date'] = pd.to_datetime(df['date'])
             df.set_index('date', inplace=True)
         else:
             try:
+                df = df.copy()
                 df.index = pd.to_datetime(df.index)
             except Exception as e:
                 print(f"⚠️ Could not convert index to datetime{(' for ' + label_for_logs) if label_for_logs else ''}: {e}")
     return df
 
 
-def _needs_iwv_agg_join(settings: dict) -> bool:
+def _fetch_iwv_agg_join(interval: str = "1d", start: str | None = "2015-01-01", end: str | None = None) -> pd.DataFrame:
     """
-    Determine whether the strategy requires an IWV+AGG joined dataframe.
-    We use this for the endowment spending engine.
+    Fetch IWV and AGG OHLCV and inner-join on DatetimeIndex.
+    Uses your existing generic fetcher behind the scenes.
     """
-    engine_cls = settings.get("engine_class", BacktestEngine)
-    if EndowmentPayoutBacktestEngine is not None and engine_cls is EndowmentPayoutBacktestEngine:
-        return True
-    return settings is globals().get("UNIVERSITY_ENDOWMENT_SPENDING_STRATEGY_SETTINGS", object())
-
-
-def _fetch_iwv_agg_join() -> pd.DataFrame:
-    """
-    Fetch IWV and AGG raw OHLCV data and join them on DatetimeIndex.
-    Kept independent of other settings to avoid circular imports / missing params.
-    """
-    IWV_FETCH_SETTINGS = {"title": "IWV", "ticker": "IWV",
-                            # "period": "max",
-                           "start": "2015-01-01",
-                             "interval": "1d", "type": "equity"}
-    AGG_FETCH_SETTINGS = {"title": "AGG", "ticker": "AGG",
-                           # "period": "max",
-                           "start": "2015-01-01",
-                             "interval": "1d", "type": "equity"}
+    IWV_FETCH_SETTINGS = {
+        "title": "IWV", "ticker": "IWV", "interval": interval, "start": start, "end": end, "type": "equity"
+    }
+    AGG_FETCH_SETTINGS = {
+        "title": "AGG", "ticker": "AGG", "interval": interval, "start": start, "end": end, "type": "equity"
+    }
 
     iwv_df = fetch_data_for_strategy(IWV_FETCH_SETTINGS)
     agg_df = fetch_data_for_strategy(AGG_FETCH_SETTINGS)
@@ -74,10 +95,7 @@ def _fetch_iwv_agg_join() -> pd.DataFrame:
     agg_df = _ensure_datetime_index(agg_df, "AGG")
 
     joined = iwv_df.join(
-        agg_df,
-        how="inner",
-        lsuffix="_IWV",
-        rsuffix="_AGG"
+        agg_df, how="inner", lsuffix="_IWV", rsuffix="_AGG"
     ).sort_index()
 
     required_cols = {"close_IWV", "close_AGG"}
@@ -107,6 +125,146 @@ def _synthesize_close_from_mix(df: pd.DataFrame, w_iwv: float, w_agg: float, bas
     idx = (1.0 + port_r.fillna(0.0)).cumprod()
     return base * idx
 
+
+def _data_key_for_strategy(strategy_class):
+    """
+    A cache key describing the required columns for a given strategy class.
+    """
+    req = getattr(strategy_class, "REQUIRED_COLUMNS", None)
+    if not req:
+        return ("DEFAULT", )
+    return tuple(sorted(req))
+
+
+def _fetch_by_strategy_requirements(settings: dict, fetch_cache: dict) -> pd.DataFrame:
+    """
+    Choose what data to fetch by inspecting strategy_class.REQUIRED_COLUMNS.
+    Uses a cache so we don't refetch the same panel for the grid.
+    """
+    strategy_class = settings["strategy_class"]
+    interval = settings.get("interval", "1d")
+    start = settings.get("start")
+    end = settings.get("end")
+
+    key = (_data_key_for_strategy(strategy_class), interval, start, end)
+    if key in fetch_cache:
+        return fetch_cache[key].copy()
+
+    required = getattr(strategy_class, "REQUIRED_COLUMNS", None)
+
+    # Route: IWV + AGG joined panel
+    if required and {"close_IWV", "close_AGG"}.issubset(required):
+        df = _fetch_iwv_agg_join(interval=interval, start=start, end=end)
+    else:
+        # Generic path (expects your fetcher to use settings['ticker'] or other params)
+        df = fetch_data_for_strategy(settings)
+
+    df = _ensure_datetime_index(df)
+    fetch_cache[key] = df
+    return df.copy()
+
+
+# ----------------------- Strategy comparers -----------------------
+
+def compare_strategies(strategy_settings_list):
+    """
+    Runs, trims, collects metrics, and plots strategies from a list of strategy settings dicts.
+    Data is chosen based on strategy_class.REQUIRED_COLUMNS (no fake tickers needed).
+    """
+    # >>> keep table + chart on the SAME rf <<<
+    RF = 0.025
+
+    raw_data = []
+    fetch_cache = {}
+
+    # Step 1: Fetch and tag data based on strategy requirements
+    for settings in strategy_settings_list:
+        df = _fetch_by_strategy_requirements(settings, fetch_cache)
+
+        strategy_class = settings["strategy_class"]
+        title = settings.get('title', strategy_class.__name__)
+
+        df.attrs['title'] = title
+        df.attrs['ticker'] = strategy_class.__name__
+
+        raw_data.append((settings, df))
+
+    if not raw_data:
+        print("No strategies provided.")
+        return
+
+    # Step 2: Align start date
+    latest_start = max(df.index.min() for _, df in raw_data)
+
+    trimmed_data = []
+    for settings, df in raw_data:
+        trimmed = df[df.index >= latest_start].copy()
+        trimmed.attrs['title'] = df.attrs['title']
+        trimmed.attrs['ticker'] = df.attrs['ticker']
+        trimmed_data.append((settings, trimmed))
+
+    # Step 3: Run each strategy + engine and collect metrics
+    metrics_list = []
+    results = []
+    for settings, df in trimmed_data:
+        strategy_class = settings["strategy_class"]
+        strategy_args = {
+            k: v for k, v in settings.items()
+            if k not in ['strategy_class', 'title', 'ticker', 'engine_class', 'engine_kwargs',
+                         'interval', 'start', 'end', 'label']
+        }
+        strategy = strategy_class(**strategy_args)
+
+        engine_cls = settings.get("engine_class", BacktestEngine)
+        engine_kwargs = settings.get("engine_kwargs", {})
+        try:
+            backtester = engine_cls(**engine_kwargs)
+        except TypeError:
+            backtester = BacktestEngine()
+
+        signal_df = strategy.generate_signals(df)
+        result_df = backtester.run_backtest(signal_df)
+
+        label = settings.get("label") or settings.get("title")
+        result_df.attrs['title']  = label
+        result_df.attrs['ticker'] = label
+
+        # >>> make table use the same RF <<<
+                # >>> compute metrics, then force RF-consistent Sharpe/Sortino <<<
+        if strategy_class.__name__ in ("StaticMixIWVAGG", "StaticMixIWV_VXUS_AGG"):
+            metrics = extract_eif_metrics_dict(result_df)  # no rf arg supported
+            metrics = _apply_rf_to_metrics(metrics, result_df, rf=RF)
+        else:
+            # If your extract_performance_metrics_dict accepts rf, great;
+            # if not, the helper will still enforce RF.
+            try:
+                metrics = extract_performance_metrics_dict(result_df, risk_free_rate=RF)
+            except TypeError:
+                metrics = extract_performance_metrics_dict(result_df)
+            metrics = _apply_rf_to_metrics(metrics, result_df, rf=RF)
+
+
+        metrics_list.append(metrics)
+        results.append(result_df)
+
+    # Step 4: Format and print metrics
+    metrics_df = pd.DataFrame(metrics_list)
+
+    df_fmt = metrics_df.copy()
+    for col in df_fmt.columns:
+        col_lower = col.lower()
+        if col_lower.startswith("sharpe") or col_lower.startswith("sortino"):
+            df_fmt[col] = df_fmt[col].map(lambda x: f"{x:.5f}" if pd.notnull(x) else "")
+        elif any(k in col_lower for k in ["cagr", "return", "stdev", "vol", "drawdown", "variance"]):
+            df_fmt[col] = df_fmt[col].map(lambda x: f"{x:.2f}" if pd.notnull(x) else "")
+
+    pretty_print_df(df_fmt)
+
+    # Step 5: Plot equity curves (interactive tabs: linear/log/frontier) with the SAME rf
+    fig = plt.figure(figsize=(12, 6))
+    plot_equity_tab(fig, results, normalize=True, risk_free_rate=RF)
+
+# ----------------------- Endowment payout analysis -----------------------
 
 def _extract_payout_events_df(results_df: pd.DataFrame, payouts_df: pd.DataFrame | None) -> pd.DataFrame:
     """
@@ -143,70 +301,6 @@ def _extract_payout_events_df(results_df: pd.DataFrame, payouts_df: pd.DataFrame
     return pd.DataFrame(columns=['date', 'amount'])
 
 
-def compare_strategies(strategy_settings_list):
-    """
-    (unchanged) Runs, trims, collects metrics, and plots strategies from a list of strategy settings dicts.
-    """
-    raw_data = []
-
-    # Step 1: Fetch and tag data
-    for settings in strategy_settings_list:
-        if _needs_iwv_agg_join(settings):
-            df = _fetch_iwv_agg_join()
-        else:
-            df = fetch_data_for_strategy(settings)
-
-        df = _ensure_datetime_index(df)
-        df.attrs['title'] = settings.get('title', 'Untitled Strategy')
-        df.attrs['ticker'] = settings.get('ticker', 'Unknown')
-
-        raw_data.append((settings, df))
-
-    # Step 2: Align start date
-    latest_start = max(df.index.min() for _, df in raw_data)
-
-    trimmed_data = []
-    for settings, df in raw_data:
-        trimmed = df[df.index >= latest_start].copy()
-        trimmed.attrs['title'] = df.attrs['title']
-        trimmed.attrs['ticker'] = df.attrs['ticker']
-        trimmed_data.append((settings, trimmed))
-
-    # Step 3: Run each strategy + engine and collect metrics
-    metrics_list = []
-    results = []
-    for settings, df in trimmed_data:
-        strategy_class = settings["strategy_class"]
-        strategy_args = {k: v for k, v in settings.items()
-                         if k not in ['strategy_class', 'title', 'ticker', 'engine_class', 'engine_kwargs']}
-        strategy = strategy_class(**strategy_args)
-
-        engine_cls = settings.get("engine_class", BacktestEngine)
-        engine_kwargs = settings.get("engine_kwargs", {})
-        try:
-            backtester = engine_cls(**engine_kwargs)
-        except TypeError:
-            backtester = BacktestEngine()
-
-        signal_df = strategy.generate_signals(df)
-        result_df = backtester.run_backtest(signal_df)
-
-        result_df.attrs['title'] = df.attrs['title']
-        result_df.attrs['ticker'] = df.attrs['ticker']
-
-        metrics = extract_performance_metrics_dict(result_df)
-        metrics_list.append(metrics)
-        results.append(result_df)
-
-    # Step 4: Print metrics
-    metrics_df = pd.DataFrame(metrics_list)
-    pd.set_option('display.float_format', '{:.2f}'.format)
-    pretty_print_df(metrics_df)
-
-    # Step 5: Plot equity curves
-    plot_multiple_equity_curves(results)
-
-
 def analyze_strategy(strategy_settings):
     """
     Analyze a single strategy, showing FIVE TABS:
@@ -217,11 +311,9 @@ def analyze_strategy(strategy_settings):
       Tab 5: Comparison — TOP: overlay both mixes’ payout amounts (four bars) + cumulative lines
                          BOTTOM: No-payout benchmarks (70/30 & IWV-only) vs all four payout NAVs
     """
-    # Build the input DataFrame (IWV+AGG pair)
-    if _needs_iwv_agg_join(strategy_settings):
-        df = _fetch_iwv_agg_join()
-    else:
-        df = fetch_data_for_strategy(strategy_settings)
+    # Build the input DataFrame according to the strategy requirements
+    fetch_cache = {}
+    df = _fetch_by_strategy_requirements(strategy_settings, fetch_cache)
 
     # ✅ Ensure datetime index
     df = _ensure_datetime_index(df)
@@ -230,7 +322,8 @@ def analyze_strategy(strategy_settings):
     # Instantiate strategy and generate signals once
     # ------------------------------------------------------------
     strategy_kwargs = {k: v for k, v in strategy_settings.items()
-                       if k not in ['strategy_class', 'title', 'ticker', 'engine_class', 'engine_kwargs', 'iwv100_growth_overrides']}
+                       if k not in ['strategy_class', 'title', 'ticker', 'engine_class', 'engine_kwargs',
+                                    'iwv100_growth_overrides', 'interval', 'start', 'end', 'label']}
     strategy = strategy_settings["strategy_class"](**strategy_kwargs)
 
     base_engine_kwargs = deepcopy(strategy_settings.get("engine_kwargs", {}))
@@ -451,7 +544,7 @@ def analyze_strategy(strategy_settings):
             ax_top2.set_ylim(0, ymax * 1.15 if ymax > 0 else 1.0)
             ax_top2.margins(y=0.1)
 
-        # Cumulative payout lines (left axis) — keep your linestyles
+        # Cumulative payout lines (left axis)
         ax_top.plot(res_pct7030.index, res_pct7030['cum_payout'], linewidth=1.5,
                     color='tab:blue', label="70/30 %", zorder=3)
         ax_top.plot(res_grow7030.index, res_grow7030['cum_payout'], linewidth=1.5,
@@ -468,7 +561,7 @@ def analyze_strategy(strategy_settings):
         # ✅ Show/format x-axis on TOP chart too
         _force_top_xticks(ax_top)
 
-        # Bottom: benchmarks + four NAVs (keep linestyles as given)
+        # Bottom: benchmarks + four NAVs
         ax_bot.plot(res_pct7030.index, res_pct7030['close'], linewidth=1.5, alpha=0.9, color='black', label="Benchmark 70/30 (no payouts)")
         ax_bot.plot(res_pctIWV.index, res_pctIWV['close'], linewidth=1.5, alpha=0.9, color='gray', label="Benchmark IWV-only (no payouts)")
 
@@ -532,5 +625,84 @@ def analyze_strategy(strategy_settings):
         m['Strategy'] = title
         metrics_rows.append(m)
     metrics_df = pd.DataFrame(metrics_rows).set_index('Strategy')
-    pd.set_option('display.float_format', '{:.2f}'.format)
+    pd.set_option('display.float_format', '{:.8f}'.format)
     pretty_print_df(metrics_df)
+
+def _fetch_by_strategy_requirements(settings: dict, fetch_cache: dict) -> pd.DataFrame:
+    """
+    Choose what data to fetch by inspecting strategy_class.REQUIRED_COLUMNS.
+    Uses a cache so we don't refetch the same panel for the grid.
+
+    Supports:
+      - {"close_IWV", "close_AGG"}         -> _fetch_iwv_agg_join()
+      - {"close_IWV", "close_VXUS", "close_AGG"} -> _fetch_iwv_vxus_agg_join()
+      - otherwise -> fetch_data_for_strategy(settings)
+    """
+    strategy_class = settings["strategy_class"]
+    interval = settings.get("interval", "1d")
+    start = settings.get("start")
+    end = settings.get("end")
+
+    key = (_data_key_for_strategy(strategy_class), interval, start, end)
+    if key in fetch_cache:
+        return fetch_cache[key].copy()
+
+    required = getattr(strategy_class, "REQUIRED_COLUMNS", None)
+
+    if required and {"close_IWV", "close_VXUS", "close_AGG"}.issubset(required):
+        df = _fetch_iwv_vxus_agg_join(interval=interval, start=start, end=end)
+    elif required and {"close_IWV", "close_AGG"}.issubset(required):
+        df = _fetch_iwv_agg_join(interval=interval, start=start, end=end)
+    else:
+        df = fetch_data_for_strategy(settings)
+
+    df = _ensure_datetime_index(df)
+    fetch_cache[key] = df
+    return df.copy()
+
+
+def _fetch_iwv_vxus_agg_join(interval: str = "1d",
+                              start: str | None = "2015-01-01",
+                              end: str | None = None) -> pd.DataFrame:
+    """
+    Fetch IWV, VXUS, AGG; rename to suffixed OHLCV columns; inner-join on DatetimeIndex.
+    Produces: close_IWV, close_VXUS, close_AGG (and corresponding open/high/low/volume).
+    """
+
+    def _ensure_dtindex(df: pd.DataFrame, who: str) -> pd.DataFrame:
+        df = _ensure_datetime_index(df, who)
+        # Make sure columns are lower-case (your fetcher already does this)
+        df.columns = [str(c).lower() for c in df.columns]
+        return df
+
+    def _suffix_ohlcv(df: pd.DataFrame, suffix: str) -> pd.DataFrame:
+        # Only suffix standard OHLCV columns if present
+        ohlcv = ("open", "high", "low", "close", "volume", "adj close", "adj_close")
+        rename_map = {c: f"{c}_{suffix}" for c in ohlcv if c in df.columns}
+        return df.rename(columns=rename_map)
+
+    # --- Fetch raw panels ---
+    IWV_SETTINGS = {"title": "IWV", "ticker": "IWV", "interval": interval, "start": start, "end": end, "type": "equity"}
+    VXUS_SETTINGS = {"title": "VXUS", "ticker": "VXUS", "interval": interval, "start": start, "end": end, "type": "equity"}
+    AGG_SETTINGS  = {"title": "AGG",  "ticker": "AGG",  "interval": interval, "start": start, "end": end, "type": "equity"}
+
+    iwv = _ensure_dtindex(fetch_data_for_strategy(IWV_SETTINGS), "IWV")
+    vxus = _ensure_dtindex(fetch_data_for_strategy(VXUS_SETTINGS), "VXUS")
+    agg = _ensure_dtindex(fetch_data_for_strategy(AGG_SETTINGS),  "AGG")
+
+    # --- Add suffixes BEFORE joining so there are no collisions ---
+    iwv = _suffix_ohlcv(iwv,  "IWV")
+    vxus = _suffix_ohlcv(vxus, "VXUS")
+    agg  = _suffix_ohlcv(agg,  "AGG")
+
+    # --- Inner-join on common dates ---
+    joined = iwv.join(vxus, how="inner").join(agg, how="inner").sort_index()
+
+    # --- Validate required cols exist ---
+    req = {"close_IWV", "close_VXUS", "close_AGG"}
+    if not req.issubset(joined.columns):
+        raise ValueError(f"IWV/VXUS/AGG frame missing {req}. Found: {list(joined.columns)}")
+
+    joined.attrs["title"]  = "IWV + VXUS + AGG (joined)"
+    joined.attrs["ticker"] = "IWV/VXUS/AGG"
+    return joined
